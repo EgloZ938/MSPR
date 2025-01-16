@@ -4,8 +4,8 @@
 
 Notre équipe est composée des membres suivants :
 
-- Théo EVON
-- Médy Daniel
-- Florient Huguet
-- Mattéo Robin
-- Nicolas
+- DANIEL Médy
+- EVON Théo
+- HUGUET Floriant
+- ROBIN Mattéo
+- RAVELO Nicolas

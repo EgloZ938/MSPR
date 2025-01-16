@@ -6,6 +6,6 @@ Notre équipe est composée des membres suivants :
 
 - DANIEL Médy
 - EVON Théo
-- HUGUET Floriant
-- ROBIN Mattéo
+- HUGUET Florian
+- ROBIN Matteo
 - RAVELO Nicolas

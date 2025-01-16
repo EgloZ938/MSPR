@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Pandémie</title>
+    <title>Dashboard COVID-19</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -35,12 +35,8 @@
         .container {
             padding: 2rem;
         }
-        .filter-section {
-            margin-bottom: 2rem;
-            padding: 1rem;
-            background: white;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        .hidden {
+            display: none;
         }
         .dashboard {
             display: grid;
@@ -54,22 +50,8 @@
             padding: 1rem;
             text-align: center;
         }
-        .chart {
-            height: 250px;
-            max-width: 100%;
-            background: #e8f5e9;
-            border-radius: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #7f8c8d;
-        }
-        canvas {
-            width: 100% !important;
-            height: auto !important;
-        }
         .filter-btn {
-            margin-left: 10px;
+            margin: 1rem 0;
             padding: 0.5rem 1rem;
             background-color: #43a047;
             color: white;
@@ -80,50 +62,35 @@
         .filter-btn:hover {
             background-color: #2e7d32;
         }
-        .hidden {
-            display: none;
+        .analysis-result {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #e3f2fd;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
-        .multi-select {
-            margin-top: 10px;
+        canvas {
+        width: 100%;
+        height: 400px;
+        }
+
+        .card {
+        height: 500px; /* Ajustez la hauteur en fonction du design souhaité */
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>Tableau de Bord : Données Pandémies</h1>
+        <h1>Tableau de Bord : Données COVID-19</h1>
     </header>
     <nav>
-        <a href="#" onclick="showPage('mpox')">Mpox</a>
-        <a href="#" onclick="showPage('coronavirus')">Coronavirus</a>
+        <a href="#" onclick="showPage('coronavirus')">COVID-19</a>
         <a href="#" onclick="showPage('analysis')">Analyse</a>
         <a href="#" onclick="showPage('help')">Aide</a>
     </nav>
 
-    <div id="mpox" class="container">
-        <h2>Mpox</h2>
-        <div class="dashboard">
-            <div class="card">
-                <h3>Total des Cas</h3>
-                <canvas id="mpox-total-cases"></canvas>
-            </div>
-            <div class="card">
-                <h3>Total des Décès</h3>
-                <canvas id="mpox-total-deaths"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <div id="coronavirus" class="container hidden">
-        <h2>Coronavirus</h2>
-        <div class="filter-section">
-            <h3>Sélectionner des pays pour le camembert</h3>
-            <div class="multi-select">
-                <label><input type="checkbox" value="France" checked> France</label>
-                <label><input type="checkbox" value="USA" checked> USA</label>
-                <label><input type="checkbox" value="Brésil" checked> Brésil</label>
-                <button class="filter-btn" onclick="updatePieChart()">Mettre à jour</button>
-            </div>
-        </div>
+    <div id="coronavirus" class="container">
+        <h2>COVID-19</h2>
         <div class="dashboard">
             <div class="card">
                 <h3>Cas Confirmés</h3>
@@ -135,14 +102,19 @@
             </div>
             <div class="card">
                 <h3>Récupérations</h3>
-                <canvas id="covid-recoveries"></canvas>
+                <canvas id="covid-recovered"></canvas>
             </div>
         </div>
     </div>
+    
 
     <div id="analysis" class="container hidden">
         <h2>Analyse des Données</h2>
         <button class="filter-btn" onclick="runAIAnalysis()">Générer une Analyse avec l'IA</button>
+        <div id="analysis-result" class="analysis-result hidden">
+            <h3>Résultat de l'Analyse</h3>
+            <p id="analysis-text">L'analyse sera affichée ici après génération.</p>
+        </div>
     </div>
 
     <div id="help" class="container hidden">
@@ -152,69 +124,106 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        let pieChart;
-        const initialData = {
-            France: 3000,
-            USA: 5000,
-            Brésil: 7000
-        };
+const apiBaseUrl = 'http://127.0.0.1:5000/api';
 
-        function showPage(pageId) {
-            document.querySelectorAll('.container').forEach(container => {
-                container.classList.add('hidden');
-            });
-            document.getElementById(pageId).classList.remove('hidden');
+// Déclarer les variables globales pour stocker les graphiques
+let confirmedChart = null;
+let deathsChart = null;
+let recoveredChart = null;
+
+async function fetchData(endpoint) {
+    const response = await fetch(`${apiBaseUrl}/${endpoint}`);
+    if (!response.ok) {
+        console.error("Erreur lors de la récupération des données :", response.statusText);
+        return {};
+    }
+    return response.json();
+}
+
+async function loadCharts() {
+    try {
+        const covidData = await fetchData('covid/summary');
+        console.log("Données reçues :", covidData);
+
+        if (!covidData.countries || !covidData.confirmed || !covidData.deaths || !covidData.recovered) {
+            console.error("Les données sont incomplètes !");
+            return;
         }
 
-        function updatePieChart() {
-            const selectedCountries = Array.from(document.querySelectorAll('.multi-select input:checked'))
-                .map(input => input.value);
+        // Détruire les anciens graphiques s'ils existent
+        if (confirmedChart) confirmedChart.destroy();
+        if (deathsChart) deathsChart.destroy();
+        if (recoveredChart) recoveredChart.destroy();
 
-            const data = selectedCountries.map(country => initialData[country]);
-
-            if (pieChart) pieChart.destroy();
-
-            pieChart = new Chart(document.getElementById('covid-recoveries').getContext('2d'), {
-                type: 'pie',
-                data: {
-                    labels: selectedCountries,
-                    datasets: [{
-                        data,
-                        backgroundColor: ['#43a047', '#66bb6a', '#81c784']
-                    }]
-                }
-            });
-        }
-
-        // Initial pie chart
-        updatePieChart();
-
-        // Other graphs (static examples)
-        new Chart(document.getElementById('mpox-total-cases').getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
-                datasets: [{
-                    label: 'Total des Cas',
-                    data: [27, 50, 75, 100, 130],
-                    borderColor: '#43a047',
-                    backgroundColor: 'rgba(67, 160, 71, 0.1)',
-                    fill: true
-                }]
-            }
-        });
-
-        new Chart(document.getElementById('mpox-total-deaths').getContext('2d'), {
+        // Graphique des cas confirmés par pays
+        confirmedChart = new Chart(document.getElementById('covid-confirmed-cases').getContext('2d'), {
             type: 'bar',
             data: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+                labels: covidData.countries,
                 datasets: [{
-                    label: 'Total des Décès',
-                    data: [2, 4, 6, 8, 10],
-                    backgroundColor: '#2e7d32'
+                    label: 'Cas Confirmés',
+                    data: covidData.confirmed,
+                    backgroundColor: '#43a047'
                 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true },
+                    title: { display: true, text: 'Cas Confirmés par Pays' }
+                }
             }
         });
+
+        // Graphique des décès par pays
+        deathsChart = new Chart(document.getElementById('covid-deaths').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: covidData.countries,
+                datasets: [{
+                    label: 'Décès',
+                    data: covidData.deaths,
+                    backgroundColor: '#e53935'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true },
+                    title: { display: true, text: 'Décès par Pays' }
+                }
+            }
+        });
+
+        // Graphique des récupérations par pays
+        recoveredChart = new Chart(document.getElementById('covid-recovered').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: covidData.countries,
+                datasets: [{
+                    label: 'Récupérations',
+                    data: covidData.recovered,
+                    backgroundColor: '#1e88e5'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true },
+                    title: { display: true, text: 'Récupérations par Pays' }
+                }
+            }
+        });
+    } catch (error) {
+        console.error("Erreur lors de la création des graphiques :", error);
+    }
+}
+
+// Charger les graphiques au démarrage
+loadCharts();
     </script>
 </body>
 </html>

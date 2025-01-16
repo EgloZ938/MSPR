@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Pandémie</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        header {
+            background-color: #43a047;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+        nav {
+            background-color: #2e7d32;
+            display: flex;
+            justify-content: center;
+            padding: 0.5rem;
+        }
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin: 0 1rem;
+            font-weight: bold;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+        .container {
+            padding: 2rem;
+        }
+        .filter-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        .card {
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            text-align: center;
+        }
+        .chart {
+            height: 250px;
+            max-width: 100%;
+            background: #e8f5e9;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #7f8c8d;
+        }
+        canvas {
+            width: 100% !important;
+            height: auto !important;
+        }
+        .filter-btn {
+            margin-left: 10px;
+            padding: 0.5rem 1rem;
+            background-color: #43a047;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .filter-btn:hover {
+            background-color: #2e7d32;
+        }
+        .hidden {
+            display: none;
+        }
+        .multi-select {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Tableau de Bord : Données Pandémies</h1>
+    </header>
+    <nav>
+        <a href="#" onclick="showPage('mpox')">Mpox</a>
+        <a href="#" onclick="showPage('coronavirus')">Coronavirus</a>
+        <a href="#" onclick="showPage('analysis')">Analyse</a>
+        <a href="#" onclick="showPage('help')">Aide</a>
+    </nav>
+
+    <div id="mpox" class="container">
+        <h2>Mpox</h2>
+        <div class="dashboard">
+            <div class="card">
+                <h3>Total des Cas</h3>
+                <canvas id="mpox-total-cases"></canvas>
+            </div>
+            <div class="card">
+                <h3>Total des Décès</h3>
+                <canvas id="mpox-total-deaths"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="coronavirus" class="container hidden">
+        <h2>Coronavirus</h2>
+        <div class="filter-section">
+            <h3>Sélectionner des pays pour le camembert</h3>
+            <div class="multi-select">
+                <label><input type="checkbox" value="France" checked> France</label>
+                <label><input type="checkbox" value="USA" checked> USA</label>
+                <label><input type="checkbox" value="Brésil" checked> Brésil</label>
+                <button class="filter-btn" onclick="updatePieChart()">Mettre à jour</button>
+            </div>
+        </div>
+        <div class="dashboard">
+            <div class="card">
+                <h3>Cas Confirmés</h3>
+                <canvas id="covid-confirmed-cases"></canvas>
+            </div>
+            <div class="card">
+                <h3>Décès</h3>
+                <canvas id="covid-deaths"></canvas>
+            </div>
+            <div class="card">
+                <h3>Récupérations</h3>
+                <canvas id="covid-recoveries"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="analysis" class="container hidden">
+        <h2>Analyse des Données</h2>
+        <button class="filter-btn" onclick="runAIAnalysis()">Générer une Analyse avec l'IA</button>
+    </div>
+
+    <div id="help" class="container hidden">
+        <h2>Aide</h2>
+        <p>Pour toute question ou assistance, contactez-nous.</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let pieChart;
+        const initialData = {
+            France: 3000,
+            USA: 5000,
+            Brésil: 7000
+        };
+
+        function showPage(pageId) {
+            document.querySelectorAll('.container').forEach(container => {
+                container.classList.add('hidden');
+            });
+            document.getElementById(pageId).classList.remove('hidden');
+        }
+
+        function updatePieChart() {
+            const selectedCountries = Array.from(document.querySelectorAll('.multi-select input:checked'))
+                .map(input => input.value);
+
+            const data = selectedCountries.map(country => initialData[country]);
+
+            if (pieChart) pieChart.destroy();
+
+            pieChart = new Chart(document.getElementById('covid-recoveries').getContext('2d'), {
+                type: 'pie',
+                data: {
+                    labels: selectedCountries,
+                    datasets: [{
+                        data,
+                        backgroundColor: ['#43a047', '#66bb6a', '#81c784']
+                    }]
+                }
+            });
+        }
+
+        // Initial pie chart
+        updatePieChart();
+
+        // Other graphs (static examples)
+        new Chart(document.getElementById('mpox-total-cases').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+                datasets: [{
+                    label: 'Total des Cas',
+                    data: [27, 50, 75, 100, 130],
+                    borderColor: '#43a047',
+                    backgroundColor: 'rgba(67, 160, 71, 0.1)',
+                    fill: true
+                }]
+            }
+        });
+
+        new Chart(document.getElementById('mpox-total-deaths').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+                datasets: [{
+                    label: 'Total des Décès',
+                    data: [2, 4, 6, 8, 10],
+                    backgroundColor: '#2e7d32'
+                }]
+            }
+        });
+    </script>
+</body>
+</html>

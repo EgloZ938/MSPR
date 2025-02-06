@@ -1,23 +1,13 @@
 {
   "name": "covid-dashboard",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "cors": "^2.8.5",
-<<<<<<< HEAD
-    "express": "^4.21.2",
-=======
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.2",
->>>>>>> b5ed5241d1d12b722ef698c8b82a28c717e6b8d2
-    "pg": "^8.13.1"
-  }
+  "license": "ISC"
 }

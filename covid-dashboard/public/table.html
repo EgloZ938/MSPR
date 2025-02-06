@@ -169,10 +169,29 @@
             return new Intl.NumberFormat().format(num);
         }
 
+        // Vérification de l'authentification
+        function checkAuth() {
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+            return token;
+        }
+
         // Charger les données
         async function loadData() {
+            const token = checkAuth();
             try {
-                const response = await fetch('http://localhost:3000/api/all-data');
+                const response = await fetch('http://localhost:3000/api/all-data', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (response.status === 401 || response.status === 403) {
+                    window.location.href = '/login.html';
+                    return;
+                }
                 allData = await response.json();
                 document.getElementById('totalEntries').textContent = allData.length;
                 displayData();
@@ -180,8 +199,8 @@
             } catch (error) {
                 console.error('Erreur:', error);
                 document.getElementById('tableBody').innerHTML = `
-                    <tr><td colspan="6" style="color: red;">Erreur lors du chargement des données</td></tr>
-                `;
+            <tr><td colspan="6" style="color: red;">Erreur lors du chargement des données</td></tr>
+        `;
             }
         }
 

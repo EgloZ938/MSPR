@@ -2,10 +2,12 @@ const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 app.use(express.static('public'));
 
 // Configuration PostgreSQL avec variables d'environnement
@@ -15,6 +17,43 @@ const pool = new Pool({
     database: process.env.DB_NAME,
     password: process.env.DB_PASSWORD,
     port: process.env.DB_PORT,
+});
+
+// Middleware d'authentification
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'Token manquant' });
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET || 'votre_secret_jwt', (err, user) => {
+        if (err) {
+            return res.status(403).json({ error: 'Token invalide' });
+        }
+        req.user = user;
+        next();
+    });
+};
+
+// Route de login (nouvelle)
+app.post('/api/admin/login', (req, res) => {
+    const { username, password } = req.body;
+
+    if (username === process.env.ADMIN_USERNAME && 
+        password === process.env.ADMIN_PASSWORD) {
+        
+        const token = jwt.sign(
+            { username: process.env.ADMIN_USERNAME },
+            process.env.JWT_SECRET || 'votre_secret_jwt',
+            { expiresIn: '1h' }
+        );
+
+        res.json({ token });
+    } else {
+        res.status(401).json({ error: 'Identifiants incorrects' });
+    }
 });
 
 // Route pour servir la page HTML

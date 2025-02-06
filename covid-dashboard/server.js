@@ -2,6 +2,7 @@ const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
+<<<<<<< HEAD
 
 const app = express();
 app.use(cors());
@@ -14,6 +15,60 @@ const pool = new Pool({
     database: 'covid_db',
     password: 'caca123',
     port: 5432,
+=======
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
+
+// Configuration PostgreSQL avec variables d'environnement
+const pool = new Pool({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port: process.env.DB_PORT,
+});
+
+// Middleware d'authentification
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'Token manquant' });
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET || 'votre_secret_jwt', (err, user) => {
+        if (err) {
+            return res.status(403).json({ error: 'Token invalide' });
+        }
+        req.user = user;
+        next();
+    });
+};
+
+// Route de login (nouvelle)
+app.post('/api/admin/login', (req, res) => {
+    const { username, password } = req.body;
+
+    if (username === process.env.ADMIN_USERNAME && 
+        password === process.env.ADMIN_PASSWORD) {
+        
+        const token = jwt.sign(
+            { username: process.env.ADMIN_USERNAME },
+            process.env.JWT_SECRET || 'votre_secret_jwt',
+            { expiresIn: '1h' }
+        );
+
+        res.json({ token });
+    } else {
+        res.status(401).json({ error: 'Identifiants incorrects' });
+    }
+>>>>>>> b5ed5241d1d12b722ef698c8b82a28c717e6b8d2
 });
 
 // Route pour servir la page HTML
@@ -24,7 +79,11 @@ app.get('/', (req, res) => {
 // API pour récupérer toutes les données
 app.get('/api/all-data', async (req, res) => {
     try {
+<<<<<<< HEAD
         const result = await pool.query('SELECT * FROM covid_stats');
+=======
+        const result = await pool.query('SELECT * FROM covid_stats ORDER BY country_region');
+>>>>>>> b5ed5241d1d12b722ef698c8b82a28c717e6b8d2
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -63,7 +122,11 @@ app.get('/api/top-countries', async (req, res) => {
     }
 });
 
+<<<<<<< HEAD
 const PORT = 3000;
+=======
+const PORT = process.env.PORT || 3000;
+>>>>>>> b5ed5241d1d12b722ef698c8b82a28c717e6b8d2
 app.listen(PORT, () => {
     console.log(`Serveur démarré sur http://localhost:${PORT}`);
 });

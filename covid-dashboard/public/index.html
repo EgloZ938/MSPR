@@ -35,7 +35,6 @@
         h1 {
             color: #1a73e8;
             text-align: center;
-            margin-bottom: 20px;
         }
 
         .stats-grid {
@@ -51,6 +50,11 @@
             border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
         }
 
         .stat-card h3 {
@@ -65,18 +69,43 @@
             font-weight: bold;
         }
 
+        .stat-card .trend {
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
         .chart-container {
             background: #fff;
-            padding: 20px;
+            padding: 50px;
             border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
+            height: 400px;
+            /* Hauteur fixe plus petite */
+            max-height: 400px;
+            /* S'assure que ça ne dépasse pas */
+        }
+
+        .chart-title {
+            color: #5f6368;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            text-align: center;
         }
 
         .loading {
             text-align: center;
             padding: 20px;
             color: #5f6368;
+        }
+
+        .error {
+            background-color: #fde7e9;
+            color: #d32f2f;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
         }
     </style>
 </head>
@@ -91,34 +120,49 @@
             <div class="stat-card">
                 <h3>Cas Confirmés</h3>
                 <div class="number" id="confirmed">...</div>
+                <div class="trend" id="confirmed-trend"></div>
             </div>
             <div class="stat-card">
                 <h3>Décès</h3>
                 <div class="number" id="deaths">...</div>
+                <div class="trend" id="deaths-trend"></div>
             </div>
             <div class="stat-card">
                 <h3>Guéris</h3>
                 <div class="number" id="recovered">...</div>
+                <div class="trend" id="recovered-trend"></div>
             </div>
             <div class="stat-card">
                 <h3>Cas Actifs</h3>
                 <div class="number" id="active">...</div>
+                <div class="trend" id="active-trend"></div>
             </div>
         </div>
 
         <div class="chart-container">
-            <canvas id="topCountriesChart"></canvas>
+            <div class="chart-title">Évolution Globale des Cas</div>
+            <canvas id="globalTimelineChart"></canvas>
         </div>
 
         <div class="chart-container">
-            <canvas id="globalChart"></canvas>
+            <div class="chart-title">Top 10 Pays les Plus Touchés</div>
+            <canvas id="topCountriesChart"></canvas>
         </div>
     </div>
 
     <script>
         // Fonction pour formater les grands nombres
         function formatNumber(num) {
+            if (num === null || num === undefined) return '0';
             return new Intl.NumberFormat().format(num);
+        }
+
+        // Fonction pour calculer le pourcentage de changement
+        function calculateTrend(current, previous) {
+            if (!previous) return null;
+            const change = ((current - previous) / previous) * 100;
+            const sign = change > 0 ? '+' : '';
+            return `${sign}${change.toFixed(1)}%`;
         }
 
         // Fonction pour charger les statistiques globales
@@ -133,6 +177,7 @@
                 document.getElementById('active').textContent = formatNumber(data.total_active);
             } catch (error) {
                 console.error('Erreur:', error);
+                showError('Erreur lors du chargement des statistiques globales');
             }
         }
 
@@ -150,33 +195,149 @@
                         datasets: [{
                             label: 'Cas Confirmés',
                             data: data.map(item => item.confirmed),
-                            backgroundColor: 'rgba(54, 162, 235, 0.8)'
+                            backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
                         }]
                     },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,
                         plugins: {
-                            title: {
-                                display: true,
-                                text: 'Top 10 Pays - Cas Confirmés',
-                                font: {
-                                    size: 16
-                                }
-                            },
                             legend: {
                                 position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function (value) {
+                                        // Convertir en millions/milliers pour plus de lisibilité
+                                        if (value >= 1000000) {
+                                            return (value / 1000000).toFixed(1) + 'M';
+                                        }
+                                        if (value >= 1000) {
+                                            return (value / 1000).toFixed(0) + 'k';
+                                        }
+                                        return value;
+                                    }
+                                }
                             }
                         }
                     }
                 });
             } catch (error) {
                 console.error('Erreur:', error);
+                showError('Erreur lors du chargement du graphique des pays');
             }
+        }
+
+        // Fonction pour charger et afficher l'évolution globale
+        async function loadGlobalTimeline() {
+            try {
+                const response = await fetch('http://localhost:3000/api/global-timeline');
+                const data = await response.json();
+
+                const ctx = document.getElementById('globalTimelineChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(item => new Date(item.date).toLocaleDateString()),
+                        datasets: [
+                            {
+                                label: 'Cas Confirmés',
+                                data: data.map(item => item.confirmed),
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                                fill: true
+                            },
+                            {
+                                label: 'Décès',
+                                data: data.map(item => item.deaths),
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                                fill: true
+                            },
+                            {
+                                label: 'Guéris',
+                                data: data.map(item => item.recovered),
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function (value) {
+                                        // Même chose ici
+                                        if (value >= 1000000) {
+                                            return (value / 1000000).toFixed(1) + 'M';
+                                        }
+                                        if (value >= 1000) {
+                                            return (value / 1000).toFixed(0) + 'k';
+                                        }
+                                        return value;
+                                    }
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    maxTicksLimit: 12, // Limite le nombre de dates affichées
+                                    maxRotation: 45, // Rotation des labels pour meilleure lisibilité
+                                    minRotation: 45
+                                }
+                            }
+                        },
+                        elements: {
+                            point: {
+                                radius: 0, // Cache les points pour alléger le graphique
+                                hitRadius: 10 // Zone de détection pour le hover
+                            },
+                            line: {
+                                tension: 0.3 // Lisse légèrement les courbes
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erreur:', error);
+                showError('Erreur lors du chargement de l\'évolution globale');
+            }
+        }
+
+        // Fonction pour afficher les erreurs
+        function showError(message) {
+            const container = document.querySelector('.container');
+            const error = document.createElement('div');
+            error.className = 'error';
+            error.textContent = message;
+            container.insertBefore(error, container.firstChild);
+            setTimeout(() => error.remove(), 5000);
         }
 
         // Chargement initial
         loadGlobalStats();
         loadTopCountriesChart();
+        loadGlobalTimeline();
+
+        // Actualisation automatique toutes les 5 minutes
+        setInterval(() => {
+            loadGlobalStats();
+            loadTopCountriesChart();
+            loadGlobalTimeline();
+        }, 300000);
     </script>
 </body>
 

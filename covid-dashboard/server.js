@@ -2,20 +2,6 @@ const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
-<<<<<<< HEAD
-
-const app = express();
-app.use(cors());
-app.use(express.static('public'));
-
-// Configuration PostgreSQL
-const pool = new Pool({
-    user: 'egloz',  // votre nom d'utilisateur PostgreSQL
-    host: 'localhost',
-    database: 'covid_db',
-    password: 'caca123',
-    port: 5432,
-=======
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
@@ -68,7 +54,6 @@ app.post('/api/admin/login', (req, res) => {
     } else {
         res.status(401).json({ error: 'Identifiants incorrects' });
     }
->>>>>>> b5ed5241d1d12b722ef698c8b82a28c717e6b8d2
 });
 
 // Route pour servir la page HTML
@@ -79,11 +64,7 @@ app.get('/', (req, res) => {
 // API pour récupérer toutes les données
 app.get('/api/all-data', async (req, res) => {
     try {
-<<<<<<< HEAD
-        const result = await pool.query('SELECT * FROM covid_stats');
-=======
         const result = await pool.query('SELECT * FROM covid_stats ORDER BY country_region');
->>>>>>> b5ed5241d1d12b722ef698c8b82a28c717e6b8d2
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -122,11 +103,7 @@ app.get('/api/top-countries', async (req, res) => {
     }
 });
 
-<<<<<<< HEAD
-const PORT = 3000;
-=======
 const PORT = process.env.PORT || 3000;
->>>>>>> b5ed5241d1d12b722ef698c8b82a28c717e6b8d2
 app.listen(PORT, () => {
     console.log(`Serveur démarré sur http://localhost:${PORT}`);
 });

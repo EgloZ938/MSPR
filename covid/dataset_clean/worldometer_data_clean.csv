@@ -1,0 +1,4 @@
+Country/Region,Continent,Population,TotalCases,NewCases,TotalDeaths,NewDeaths,TotalRecovered,NewRecovered,ActiveCases,"Serious,Critical",Tot Cases/1M pop,Deaths/1M pop,TotalTests,Tests/1M pop,WHO Region
+Mexico,North America,129066160.0,462690,6590.0,50517.0,819.0,308848.0,4140.0,103325.0,3987.0,3585.0,391.0,1056915.0,8189.0,Americas
+Bolivia,South America,11688459.0,86423,1282.0,3465.0,80.0,27373.0,936.0,55585.0,71.0,7394.0,296.0,183583.0,15706.0,Americas
+S. Korea,Asia,51273732.0,14519,20.0,303.0,1.0,13543.0,42.0,673.0,18.0,283.0,6.0,1613652.0,31471.0,WesternPacific

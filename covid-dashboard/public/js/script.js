@@ -73,7 +73,7 @@ function getChartOptions() {
             zoom: {
                 zoom: {
                     wheel: {
-                        enabled: true,
+                        enabled: false,
                     },
                     pinch: {
                         enabled: true
@@ -850,6 +850,116 @@ async function loadCountries() {
     }
 }
 
+// Initialisation du sélecteur de pays personnalisé
+function initCustomCountrySelector() {
+    const selectedCountry = document.getElementById('selectedCountryDisplay');
+    const dropdown = document.getElementById('countriesDropdown');
+    const countriesList = document.getElementById('countriesList');
+    const searchInput = document.getElementById('countrySearch');
+    const selectedCountryText = document.getElementById('selectedCountryText');
+
+    // Fermer le dropdown si on clique ailleurs sur la page
+    document.addEventListener('click', function (event) {
+        if (!event.target.closest('.country-selector-custom')) {
+            dropdown.classList.remove('active');
+
+            // Réinitialiser la recherche
+            if (searchInput) {
+                searchInput.value = '';
+                filterCountries('');
+            }
+        }
+    });
+
+    // Ouvrir/fermer le dropdown
+    selectedCountry.addEventListener('click', function (event) {
+        event.stopPropagation();
+        dropdown.classList.toggle('active');
+
+        if (dropdown.classList.contains('active') && searchInput) {
+            searchInput.focus();
+        }
+    });
+
+    // Filtrer les pays lors de la recherche
+    if (searchInput) {
+        searchInput.addEventListener('click', function (event) {
+            event.stopPropagation();
+        });
+
+        searchInput.addEventListener('input', function () {
+            filterCountries(this.value.toLowerCase());
+        });
+    }
+
+    function filterCountries(searchTerm) {
+        const countryItems = countriesList.querySelectorAll('.country-item');
+
+        countryItems.forEach(item => {
+            const countryName = item.textContent.toLowerCase();
+
+            if (countryName.includes(searchTerm)) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+}
+
+// Fonction mise à jour pour charger les pays dans le nouveau sélecteur
+async function loadCountries() {
+    try {
+        const response = await fetch('/api/countries');
+        const countries = await response.json();
+
+        console.log("Chargement des pays - Pays sélectionné:", selectedCountry);
+
+        // Récupérer la liste des pays
+        const countriesList = document.getElementById('countriesList');
+        countriesList.innerHTML = '';
+
+        // Mettre à jour le texte affiché
+        const selectedCountryText = document.getElementById('selectedCountryText');
+        selectedCountryText.textContent = selectedCountry;
+
+        // Ajouter chaque pays à la liste déroulante
+        countries.forEach(country => {
+            const item = document.createElement('div');
+            item.className = 'country-item';
+            if (country.country_name === selectedCountry) {
+                item.classList.add('selected');
+            }
+            item.textContent = country.country_name;
+
+            item.addEventListener('click', function () {
+                selectedCountry = country.country_name;
+                selectedCountryText.textContent = selectedCountry;
+
+                // Mettre à jour la classe selected
+                const allItems = countriesList.querySelectorAll('.country-item');
+                allItems.forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+
+                // Fermer le dropdown
+                document.getElementById('countriesDropdown').classList.remove('active');
+
+                // Mettre à jour le graphique
+                updateCountryChart();
+            });
+
+            countriesList.appendChild(item);
+        });
+
+        // Initialiser les événements du sélecteur
+        initCustomCountrySelector();
+
+    } catch (error) {
+        console.error('Erreur lors du chargement des pays:', error);
+        showError('Erreur lors du chargement de la liste des pays');
+    }
+}
+
 // Initialisation de la fonctionnalité de recherche
 function initCountrySearch() {
     const searchInput = document.getElementById('countrySearch');
@@ -899,10 +1009,7 @@ async function updateCountryChart() {
     try {
         toggleLoading(true);
 
-        // Récupérer le pays sélectionné
-        const selectElement = document.getElementById('countrySelect');
-        selectedCountry = selectElement.value;
-        console.log(selectedCountry);
+        console.log("Mise à jour du graphique pour:", selectedCountry);
 
         // Charger les statistiques pour ce pays
         await loadCountryStats();
@@ -1209,8 +1316,29 @@ async function loadCountryRanking(metric) {
 
             // Cliquer sur un pays le sélectionne
             item.addEventListener('click', () => {
-                document.getElementById('countrySelect').value = country.country_region;
+                // Mettre à jour la variable globale directement
                 selectedCountry = country.country_region;
+
+                // Mettre à jour l'affichage du pays sélectionné
+                const selectedCountryText = document.getElementById('selectedCountryText');
+                if (selectedCountryText) {
+                    selectedCountryText.textContent = selectedCountry;
+                }
+
+                // Mettre à jour les sélections visuelles dans la liste des pays
+                const countriesList = document.getElementById('countriesList');
+                if (countriesList) {
+                    const countryItems = countriesList.querySelectorAll('.country-item');
+                    countryItems.forEach(countryItem => {
+                        if (countryItem.textContent === selectedCountry) {
+                            countryItem.classList.add('selected');
+                        } else {
+                            countryItem.classList.remove('selected');
+                        }
+                    });
+                }
+
+                // Mettre à jour le graphique
                 updateCountryChart();
             });
 

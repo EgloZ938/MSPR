@@ -225,12 +225,20 @@
                 <div class="options-grid">
                     <div class="option-group">
                         <label>Sélectionner un pays</label>
-                        <div class="country-selector">
-                            <input type="text" id="countrySearch" placeholder="Rechercher un pays..."
-                                class="search-input">
-                            <select id="countrySelect" onchange="updateCountryChart()">
-                                <!-- Options remplies dynamiquement -->
-                            </select>
+                        <div class="country-selector-custom">
+                            <div class="selected-country" id="selectedCountryDisplay">
+                                <span id="selectedCountryText">France</span>
+                                <i class="dropdown-icon">▼</i>
+                            </div>
+                            <div class="dropdown-container" id="countriesDropdown">
+                                <div class="search-container">
+                                    <input type="text" id="countrySearch" placeholder="Rechercher un pays..."
+                                        class="search-input">
+                                </div>
+                                <div class="countries-list" id="countriesList">
+                                    <!-- Cette liste sera remplie dynamiquement par JavaScript -->
+                                </div>
+                            </div>
                         </div>
                     </div>
 

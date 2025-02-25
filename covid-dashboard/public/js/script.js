@@ -6,6 +6,23 @@ let regionConfig = {
     datasets: {},
     colors: {}
 };
+let countryChart = null;
+let countryData = null;
+let selectedCountry = "France";
+let countryConfig = {
+    datasets: {
+        confirmed: true,
+        deaths: true,
+        recovered: true,
+        active: true
+    },
+    colors: {
+        confirmed: '#1a73e8',
+        deaths: '#dc3545',
+        recovered: '#28a745',
+        active: '#ffc107'
+    }
+};
 
 // Les couleurs par défaut pour les régions
 const defaultRegionColors = {
@@ -142,7 +159,7 @@ function getChartOptions() {
 // Chargement des statistiques globales
 async function loadGlobalStats() {
     try {
-        const response = await fetch('http://localhost:3000/api/global-stats');
+        const response = await fetch('/api/global-stats');
         const data = await response.json();
 
         document.getElementById('confirmed').textContent = formatNumber(data.total_confirmed);
@@ -159,7 +176,7 @@ async function loadGlobalStats() {
 async function updateChart() {
     try {
         toggleLoading(true);
-        const response = await fetch('http://localhost:3000/api/global-timeline');
+        const response = await fetch('/api/global-timeline');
         let data = await response.json();
 
         // Stocker les données pour l'export CSV
@@ -273,43 +290,6 @@ function exportData() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-}
-
-// Fonction pour changer de vue
-function switchView(view) {
-    // Cacher toutes les sections
-    document.querySelectorAll('.visualization-section').forEach(section => {
-        section.style.display = 'none';
-    });
-
-    // Afficher la section sélectionnée
-    document.getElementById(view).style.display = 'block';
-
-    // Mettre à jour les onglets de navigation
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-    });
-    document.querySelector(`[href="#${view}"]`).classList.add('active');
-
-    // Charger les données appropriées
-    switch (view) {
-        case 'mondial':
-            loadGlobalStats();
-            updateChart();
-            break;
-        case 'regions':
-            updateRegionChart();
-            break;
-        case 'pays':
-            // À implémenter plus tard
-            break;
-        case 'correlation':
-            // À implémenter plus tard
-            break;
-        case 'tendances':
-            // À implémenter plus tard
-            break;
-    }
 }
 
 // Fonction pour traiter les données selon le format choisi
@@ -438,7 +418,7 @@ async function updateRegionChart() {
         toggleLoading(true);
 
         // Récupération des données
-        const response = await fetch('http://localhost:3000/api/region-stats');
+        const response = await fetch('/api/region-stats');
         let data = await response.json();
 
         // Stocker les données pour l'export CSV
@@ -793,7 +773,9 @@ function switchView(view) {
                 }
                 break;
             case 'pays':
-                // À implémenter plus tard
+                // Initialisation de la vue pays sans filtre de date
+                loadCountries();
+                updateCountryChart();
                 break;
             case 'correlation':
                 // À implémenter plus tard
@@ -837,3 +819,405 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+// Chargement de la liste des pays
+async function loadCountries() {
+    try {
+        const response = await fetch('/api/countries');
+        const countries = await response.json();
+
+        const selectElement = document.getElementById('countrySelect');
+        selectElement.innerHTML = '';
+
+        countries.forEach(country => {
+            const option = document.createElement('option');
+            option.value = country.country_name;
+            option.textContent = country.country_name;
+            selectElement.appendChild(option);
+        });
+
+        // Sélectionner la France par défaut
+        selectElement.value = selectedCountry;
+
+        // Initialiser la recherche
+        initCountrySearch();
+    } catch (error) {
+        console.error('Erreur lors du chargement des pays:', error);
+        showError('Erreur lors du chargement de la liste des pays');
+    }
+}
+
+// Initialisation de la fonctionnalité de recherche
+function initCountrySearch() {
+    const searchInput = document.getElementById('countrySearch');
+    const selectElement = document.getElementById('countrySelect');
+
+    searchInput.addEventListener('input', function () {
+        const searchTerm = this.value.toLowerCase();
+        const options = selectElement.options;
+
+        for (let i = 0; i < options.length; i++) {
+            const countryName = options[i].textContent.toLowerCase();
+            if (countryName.includes(searchTerm)) {
+                options[i].style.display = '';
+            } else {
+                options[i].style.display = 'none';
+            }
+        }
+    });
+}
+
+// Chargement des statistiques pour un pays spécifique
+async function loadCountryStats() {
+    try {
+        const response = await fetch(`/api/country-timeline/${selectedCountry}`);
+        const data = await response.json();
+
+        // Stocker les données pour l'export CSV
+        countryData = data;
+
+        // Afficher les dernières statistiques
+        if (data.length > 0) {
+            const latestStats = data[data.length - 1];
+            document.getElementById('countryConfirmed').textContent = formatNumber(latestStats.confirmed);
+            document.getElementById('countryDeaths').textContent = formatNumber(latestStats.deaths);
+            document.getElementById('countryRecovered').textContent = formatNumber(latestStats.recovered);
+            document.getElementById('countryActive').textContent = formatNumber(latestStats.active);
+            document.getElementById('countryMortalityRate').textContent = latestStats.mortality_rate.toFixed(2) + '%';
+        }
+    } catch (error) {
+        console.error('Erreur lors du chargement des statistiques du pays:', error);
+        showError(`Erreur lors du chargement des statistiques pour ${selectedCountry}`);
+    }
+}
+
+// Mise à jour du graphique du pays
+async function updateCountryChart() {
+    try {
+        toggleLoading(true);
+
+        // Récupérer le pays sélectionné
+        const selectElement = document.getElementById('countrySelect');
+        selectedCountry = selectElement.value;
+
+        // Charger les statistiques pour ce pays
+        await loadCountryStats();
+
+        if (!countryData || countryData.length === 0) {
+            showError(`Aucune donnée disponible pour ${selectedCountry}`);
+            return;
+        }
+
+        const chartType = document.getElementById('countryChartType').value;
+        const dataFormat = document.getElementById('countryDataFormat').value;
+
+        // Traitement des données selon le format
+        let processedData = countryData;
+        if (dataFormat === 'daily') {
+            processedData = countryData.map((item, index) => {
+                if (index === 0) return item;
+                return {
+                    ...item,
+                    confirmed: item.confirmed - countryData[index - 1].confirmed,
+                    deaths: item.deaths - countryData[index - 1].deaths,
+                    recovered: item.recovered - countryData[index - 1].recovered,
+                    active: item.active - countryData[index - 1].active
+                };
+            });
+        }
+
+        const ctx = document.getElementById('countryChart').getContext('2d');
+
+        if (countryChart) {
+            countryChart.destroy();
+        }
+
+        // Configuration spécifique pour les graphiques de type camembert/anneau
+        if (chartType === 'pie' || chartType === 'doughnut') {
+            // Pour les graphiques circulaires, on utilise seulement la dernière date
+            const latestData = processedData[processedData.length - 1];
+
+            const labels = [];
+            const data = [];
+            const backgroundColors = [];
+
+            if (countryConfig.datasets.confirmed) {
+                labels.push('Cas confirmés');
+                data.push(latestData.confirmed);
+                backgroundColors.push(countryConfig.colors.confirmed);
+            }
+            if (countryConfig.datasets.deaths) {
+                labels.push('Décès');
+                data.push(latestData.deaths);
+                backgroundColors.push(countryConfig.colors.deaths);
+            }
+            if (countryConfig.datasets.recovered) {
+                labels.push('Guéris');
+                data.push(latestData.recovered);
+                backgroundColors.push(countryConfig.colors.recovered);
+            }
+            if (countryConfig.datasets.active) {
+                labels.push('Cas actifs');
+                data.push(latestData.active);
+                backgroundColors.push(countryConfig.colors.active);
+            }
+
+            countryChart = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const value = context.raw;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${context.label}: ${formatNumber(value)} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            // Configuration pour les graphiques chronologiques (ligne, barres)
+            const datasets = [];
+
+            if (countryConfig.datasets.confirmed) {
+                datasets.push(createDataset('Confirmed', processedData.map(item => item.confirmed), countryConfig.colors.confirmed, chartType));
+            }
+            if (countryConfig.datasets.deaths) {
+                datasets.push(createDataset('Deaths', processedData.map(item => item.deaths), countryConfig.colors.deaths, chartType));
+            }
+            if (countryConfig.datasets.recovered) {
+                datasets.push(createDataset('Recovered', processedData.map(item => item.recovered), countryConfig.colors.recovered, chartType));
+            }
+            if (countryConfig.datasets.active) {
+                datasets.push(createDataset('Active', processedData.map(item => item.active), countryConfig.colors.active, chartType));
+            }
+
+            countryChart = new Chart(ctx, {
+                type: getChartType(chartType),
+                data: {
+                    labels: processedData.map(item => new Date(item.date).toLocaleDateString()),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        zoom: {
+                            zoom: {
+                                wheel: {
+                                    enabled: false,
+                                },
+                                pinch: {
+                                    enabled: true
+                                },
+                                mode: 'xy'
+                            },
+                            pan: {
+                                enabled: true,
+                                mode: 'xy'
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function (context) {
+                                    return `${context.dataset.label}: ${formatNumber(context.raw)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function (value) {
+                                    if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                                    if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
+                                    return value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Charger le classement des pays
+        loadCountryRanking('confirmed');
+
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour du graphique du pays:', error);
+        showError(`Erreur lors de la mise à jour du graphique pour ${selectedCountry}`);
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+// Toggle dataset visibility pour le pays
+function toggleCountryDataset(datasetName) {
+    countryConfig.datasets[datasetName] = !countryConfig.datasets[datasetName];
+    updateCountryChart();
+}
+
+// Fonctions de zoom pour le graphique du pays
+function zoomInCountry() {
+    if (countryChart) {
+        const zoomOptions = countryChart.options.plugins.zoom.zoom;
+        zoomOptions.wheel.enabled = false;
+
+        const centerX = countryChart.chartArea.width / 2;
+        const centerY = countryChart.chartArea.height / 2;
+        countryChart.pan({ x: 0, y: 0 }, 'none', 'default');
+        countryChart.zoom(1.2, 'xy', { x: centerX, y: centerY });
+    }
+}
+
+function zoomOutCountry() {
+    if (countryChart) {
+        const zoomOptions = countryChart.options.plugins.zoom.zoom;
+        zoomOptions.wheel.enabled = false;
+
+        const centerX = countryChart.chartArea.width / 2;
+        const centerY = countryChart.chartArea.height / 2;
+        countryChart.pan({ x: 0, y: 0 }, 'none', 'default');
+        countryChart.zoom(0.8, 'xy', { x: centerX, y: centerY });
+    }
+}
+
+function resetCountryZoom() {
+    if (countryChart) {
+        countryChart.resetZoom();
+    }
+}
+
+// Télécharger le graphique comme image
+function downloadCountryChart() {
+    if (countryChart) {
+        const link = document.createElement('a');
+        link.download = `covid-${selectedCountry.toLowerCase()}-chart.png`;
+        link.href = countryChart.toBase64Image();
+        link.click();
+    }
+}
+
+// Exporter les données en CSV
+function exportCountryData() {
+    if (!countryData) return;
+
+    const rows = [['Date', 'Confirmed', 'Deaths', 'Recovered', 'Active', 'Mortality Rate']];
+    countryData.forEach(item => {
+        rows.push([
+            new Date(item.date).toLocaleDateString(),
+            item.confirmed,
+            item.deaths,
+            item.recovered,
+            item.active,
+            item.mortality_rate.toFixed(2)
+        ]);
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `covid-${selectedCountry.toLowerCase()}-data.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Chargement du classement des pays
+async function loadCountryRanking(metric) {
+    try {
+        // Activer l'onglet correspondant
+        document.querySelectorAll('.ranking-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelector(`.ranking-tab[onclick="updateRanking('${metric}')"]`).classList.add('active');
+
+        // Charger les données
+        const response = await fetch('/api/top-countries');
+        const countries = await response.json();
+
+        const rankingContainer = document.getElementById('countryRanking');
+        rankingContainer.innerHTML = '';
+
+        // Trier par métrique choisie
+        let sortedCountries;
+        if (metric === 'confirmed') {
+            sortedCountries = countries.sort((a, b) => b.confirmed - a.confirmed);
+        } else if (metric === 'deaths') {
+            sortedCountries = countries.sort((a, b) => b.deaths - a.deaths);
+        } else if (metric === 'mortality') {
+            sortedCountries = countries.sort((a, b) => b.mortality_rate - a.mortality_rate);
+        }
+
+        // Afficher le top 20
+        sortedCountries.slice(0, 20).forEach((country, index) => {
+            const item = document.createElement('div');
+            item.className = 'ranking-item';
+
+            let valueToShow;
+            if (metric === 'confirmed') {
+                valueToShow = formatNumber(country.confirmed);
+            } else if (metric === 'deaths') {
+                valueToShow = formatNumber(country.deaths);
+            } else if (metric === 'mortality') {
+                valueToShow = country.mortality_rate.toFixed(2) + '%';
+            }
+
+            // Highlight du pays sélectionné
+            if (country.country_region === selectedCountry) {
+                item.style.backgroundColor = 'rgba(26, 115, 232, 0.1)';
+                item.style.fontWeight = 'bold';
+            }
+
+            item.innerHTML = `
+                <span class="rank">${index + 1}</span>
+                <span class="country">${country.country_region}</span>
+                <span class="value">${valueToShow}</span>
+            `;
+
+            // Cliquer sur un pays le sélectionne
+            item.addEventListener('click', () => {
+                document.getElementById('countrySelect').value = country.country_region;
+                selectedCountry = country.country_region;
+                updateCountryChart();
+            });
+
+            rankingContainer.appendChild(item);
+        });
+    } catch (error) {
+        console.error('Erreur lors du chargement du classement:', error);
+    }
+}
+
+// Mettre à jour le classement des pays
+function updateRanking(metric) {
+    loadCountryRanking(metric);
+}

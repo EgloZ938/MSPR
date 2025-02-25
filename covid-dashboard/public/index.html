@@ -218,6 +218,121 @@
                 <canvas id="regionChart"></canvas>
             </div>
         </div>
+
+        <!-- Section Pays -->
+        <div id="pays" class="visualization-section" style="display: none;">
+            <div class="options-panel">
+                <div class="options-grid">
+                    <div class="option-group">
+                        <label>Sélectionner un pays</label>
+                        <div class="country-selector">
+                            <input type="text" id="countrySearch" placeholder="Rechercher un pays..."
+                                class="search-input">
+                            <select id="countrySelect" onchange="updateCountryChart()">
+                                <!-- Options remplies dynamiquement -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="option-group">
+                        <label>Type de visualisation</label>
+                        <select id="countryChartType" onchange="updateCountryChart()">
+                            <option value="line">Ligne</option>
+                            <option value="bar">Barres</option>
+                            <option value="pie">Camembert</option>
+                            <option value="doughnut">Anneau</option>
+                        </select>
+                    </div>
+
+                    <div class="option-group">
+                        <label>Format des données</label>
+                        <select id="countryDataFormat" onchange="updateCountryChart()">
+                            <option value="raw">Valeurs brutes</option>
+                            <option value="daily">Variation quotidienne</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="options-grid" style="margin-top: 20px;">
+                    <div class="option-group">
+                        <label>Metrics visibles</label>
+                        <div class="dataset-toggles">
+                            <label class="toggle-item">
+                                <input type="checkbox" checked id="toggleCountryConfirmed"
+                                    onchange="toggleCountryDataset('confirmed')">
+                                <span>Cas confirmés</span>
+                            </label>
+                            <label class="toggle-item">
+                                <input type="checkbox" checked id="toggleCountryDeaths"
+                                    onchange="toggleCountryDataset('deaths')">
+                                <span>Décès</span>
+                            </label>
+                            <label class="toggle-item">
+                                <input type="checkbox" checked id="toggleCountryRecovered"
+                                    onchange="toggleCountryDataset('recovered')">
+                                <span>Guéris</span>
+                            </label>
+                            <label class="toggle-item">
+                                <input type="checkbox" checked id="toggleCountryActive"
+                                    onchange="toggleCountryDataset('active')">
+                                <span>Cas actifs</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="country-stats-grid">
+                <div class="stat-card">
+                    <h3>Cas Confirmés</h3>
+                    <div class="number" id="countryConfirmed">...</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Décès</h3>
+                    <div class="number" id="countryDeaths">...</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Guéris</h3>
+                    <div class="number" id="countryRecovered">...</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Cas Actifs</h3>
+                    <div class="number" id="countryActive">...</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Taux de mortalité</h3>
+                    <div class="number" id="countryMortalityRate">...</div>
+                </div>
+            </div>
+
+            <div class="chart-controls">
+                <button class="control-btn zoom-btn" onclick="zoomInCountry()" data-tooltip="Zoom +">+</button>
+                <button class="control-btn zoom-btn" onclick="zoomOutCountry()" data-tooltip="Zoom -">-</button>
+                <button class="control-btn" onclick="resetCountryZoom()"
+                    data-tooltip="Réinitialiser le zoom">Reset</button>
+                <button class="control-btn" onclick="downloadCountryChart()">Télécharger</button>
+                <button class="control-btn" onclick="exportCountryData()">Exporter CSV</button>
+            </div>
+
+            <div class="visualization-row">
+                <div class="chart-container">
+                    <canvas id="countryChart"></canvas>
+                </div>
+
+                <!-- Section pour le classement -->
+                <div class="ranking-container">
+                    <h3>Classement des pays</h3>
+                    <div class="ranking-tabs">
+                        <button class="ranking-tab active" onclick="updateRanking('confirmed')">Cas confirmés</button>
+                        <button class="ranking-tab" onclick="updateRanking('deaths')">Décès</button>
+                        <button class="ranking-tab" onclick="updateRanking('mortality')">Taux de mortalité</button>
+                    </div>
+                    <div class="ranking-list" id="countryRanking">
+                        <!-- La liste sera remplie dynamiquement -->
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     <script src="js/script.js"></script>
 </body>

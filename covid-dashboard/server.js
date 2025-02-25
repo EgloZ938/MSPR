@@ -246,6 +246,55 @@ app.get('/api/filtered-data', async (req, res) => {
     }
 });
 
+// API pour obtenir la liste de tous les pays
+app.get('/api/countries', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                id,
+                country_name,
+                continent,
+                population
+            FROM countries
+            ORDER BY country_name
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// API pour obtenir les détails actuels d'un pays spécifique
+app.get('/api/country-details/:country', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                c.country_name,
+                c.population,
+                cd.total_tests,
+                cd.tests_per_million,
+                cd.cases_per_million,
+                cd.deaths_per_million,
+                cd.serious_critical,
+                cd.last_updated
+            FROM country_details cd
+            JOIN countries c ON cd.country_id = c.id
+            WHERE c.country_name = $1
+            ORDER BY cd.last_updated DESC
+            LIMIT 1
+        `, [req.params.country]);
+
+        if (result.rows.length > 0) {
+            res.json(result.rows[0]);
+        } else {
+            res.status(404).json({ error: 'Pays non trouvé ou aucune donnée disponible' });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Démarrer le serveur
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Serveur démarré sur http://localhost:${PORT}`);

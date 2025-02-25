@@ -1,0 +1,90 @@
+CREATE DATABASE covid_db;
+
+-- Connexion à la base de données
+\c covid_db
+
+-- Table des régions WHO
+CREATE TABLE who_regions (
+    id SERIAL PRIMARY KEY,
+    region_name VARCHAR(50) UNIQUE
+);
+
+-- Table des pays
+CREATE TABLE countries (
+    id SERIAL PRIMARY KEY,
+    country_name VARCHAR(100) UNIQUE,
+    continent VARCHAR(50),
+    population BIGINT,
+    who_region_id INTEGER REFERENCES who_regions(id)
+);
+
+-- Table des provinces/états
+CREATE TABLE provinces (
+    id SERIAL PRIMARY KEY,
+    province_name VARCHAR(100),
+    country_id INTEGER REFERENCES countries(id),
+    latitude FLOAT,
+    longitude FLOAT,
+    UNIQUE(province_name, country_id)
+);
+
+-- Table des comtés US
+CREATE TABLE us_counties (
+    id SERIAL PRIMARY KEY,
+    county_name VARCHAR(100),
+    state_id INTEGER REFERENCES provinces(id),
+    fips VARCHAR(10),
+    latitude FLOAT,
+    longitude FLOAT,
+    UNIQUE(fips)
+);
+
+-- Table des statistiques quotidiennes par pays
+CREATE TABLE daily_stats (
+    id SERIAL PRIMARY KEY,
+    country_id INTEGER REFERENCES countries(id),
+    date DATE,
+    confirmed INTEGER,
+    deaths INTEGER,
+    recovered INTEGER,
+    active INTEGER,
+    new_cases INTEGER,
+    new_deaths INTEGER,
+    new_recovered INTEGER,
+    UNIQUE(country_id, date)
+);
+
+-- Table des statistiques quotidiennes par province
+CREATE TABLE province_stats (
+    id SERIAL PRIMARY KEY,
+    province_id INTEGER REFERENCES provinces(id),
+    date DATE,
+    confirmed INTEGER,
+    deaths INTEGER,
+    recovered INTEGER,
+    active INTEGER,
+    UNIQUE(province_id, date)
+);
+
+-- Table des statistiques quotidiennes par comté US
+CREATE TABLE county_stats (
+    id SERIAL PRIMARY KEY,
+    county_id INTEGER REFERENCES us_counties(id),
+    date DATE,
+    confirmed INTEGER,
+    deaths INTEGER,
+    UNIQUE(county_id, date)
+);
+
+-- Table des statistiques détaillées par pays
+CREATE TABLE country_details (
+    id SERIAL PRIMARY KEY,
+    country_id INTEGER REFERENCES countries(id),
+    total_tests BIGINT,
+    tests_per_million FLOAT,
+    cases_per_million FLOAT,
+    deaths_per_million FLOAT,
+    serious_critical INTEGER,
+    last_updated DATE,
+    UNIQUE(country_id, last_updated)
+);

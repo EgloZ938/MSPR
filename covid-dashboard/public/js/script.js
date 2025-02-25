@@ -732,7 +732,7 @@ function exportRegionData() {
 }
 
 // Fonction pour changer de vue
-function switchView(view) {
+async function switchView(view) {
     try {
         // Masquer toutes les stats cards si on n'est pas dans la vue mondiale
         const statsGrid = document.querySelector('.stats-grid');
@@ -767,15 +767,15 @@ function switchView(view) {
                 updateChart();
                 break;
             case 'regions':
-                // S'assurer que les éléments nécessaires existent avant de charger
                 if (document.getElementById('regionChart')) {
                     updateRegionChart();
                 }
                 break;
             case 'pays':
-                // Initialisation de la vue pays sans filtre de date
-                loadCountries();
-                updateCountryChart();
+                // ATTENDRE que la liste des pays soit chargée pour que le select soit correctement peuplé
+                await loadCountries();
+                await updateCountryChart();
+                await loadCountryStats();
                 break;
             case 'correlation':
                 // À implémenter plus tard
@@ -789,6 +789,7 @@ function switchView(view) {
         showError('Erreur lors du changement de vue');
     }
 }
+
 
 // Fonction pour afficher/masquer le message de chargement
 function toggleLoading(show) {
@@ -825,6 +826,8 @@ async function loadCountries() {
     try {
         const response = await fetch('/api/countries');
         const countries = await response.json();
+
+        console.log("Pays:", selectedCountry);
 
         const selectElement = document.getElementById('countrySelect');
         selectElement.innerHTML = '';
@@ -899,6 +902,7 @@ async function updateCountryChart() {
         // Récupérer le pays sélectionné
         const selectElement = document.getElementById('countrySelect');
         selectedCountry = selectElement.value;
+        console.log(selectedCountry);
 
         // Charger les statistiques pour ce pays
         await loadCountryStats();

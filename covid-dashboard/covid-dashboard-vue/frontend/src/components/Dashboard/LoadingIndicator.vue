@@ -1,23 +1,22 @@
 <template>
     <div class="loading" v-if="isLoading">
-        Chargement des données...
+      Chargement des données...
     </div>
-</template>
-
-<script>
-export default {
-    name: 'LoadingIndicator',
-    props: {
-        isLoading: {
-            type: Boolean,
-            default: false
-        }
+  </template>
+  
+  <script setup>
+  import { defineProps } from 'vue';
+  
+  defineProps({
+    isLoading: {
+      type: Boolean,
+      default: false
     }
-}
-</script>
-
-<style scoped>
-.loading {
+  });
+  </script>
+  
+  <style scoped>
+  .loading {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -29,5 +28,6 @@ export default {
     z-index: 1000;
     font-weight: 500;
     color: var(--primary-color);
-}
-</style>
+  }
+  </style>
+  

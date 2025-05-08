@@ -6,19 +6,16 @@
       <error-message :message="errorMessage" />
 
       <mondial-view v-if="activeView === 'mondial'" @show-error="showError" />
-
       <regions-view v-if="activeView === 'regions'" @show-error="showError" />
-
       <pays-view v-if="activeView === 'pays'" @show-error="showError" />
-
       <correlation-view v-if="activeView === 'correlation'" @show-error="showError" />
-
       <tendances-view v-if="activeView === 'tendances'" @show-error="showError" />
     </div>
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref } from 'vue';
 import NavBar from './components/NavBar/NavBar.vue';
 import ErrorMessage from './components/Dashboard/ErrorMessage.vue';
 import MondialView from './components/Dashboard/MondialView.vue';
@@ -27,39 +24,21 @@ import PaysView from './components/Dashboard/PaysView.vue';
 import CorrelationView from './components/Dashboard/CorrelationView.vue';
 import TendancesView from './components/Dashboard/TendancesView.vue';
 
-export default {
-  name: 'App',
-  components: {
-    NavBar,
-    ErrorMessage,
-    MondialView,
-    RegionsView,
-    PaysView,
-    CorrelationView,
-    TendancesView
-  },
-  data() {
-    return {
-      activeView: 'mondial',
-      errorMessage: ''
+const activeView = ref('mondial');
+const errorMessage = ref('');
+
+function changeView(view) {
+  activeView.value = view;
+  errorMessage.value = '';
+}
+
+function showError(message) {
+  errorMessage.value = message;
+  setTimeout(() => {
+    if (errorMessage.value === message) {
+      errorMessage.value = '';
     }
-  },
-  methods: {
-    changeView(view) {
-      this.activeView = view;
-      // Reset error message when changing views
-      this.errorMessage = '';
-    },
-    showError(message) {
-      this.errorMessage = message;
-      // Auto-dismiss error after 5 seconds
-      setTimeout(() => {
-        if (this.errorMessage === message) {
-          this.errorMessage = '';
-        }
-      }, 5000);
-    }
-  }
+  }, 5000);
 }
 </script>
 

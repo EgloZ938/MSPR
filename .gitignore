@@ -1,2 +1,11 @@
-covid-dashboard/node_modules
-covid-dashboard/.env
+covid-dashboard-vue/node_modules
+covid-dashboard-vue/backend/.env
+covid-dashboard-vue/backend/node_modules
+covid-dashboard-vue/backend/package-lock.json
+covid-dashboard-vue/backend/structure_table.txt
+covid-dashboard-vue/backend/__pycache__
+covid-dashboard-vue/frontend/node_modules
+covid-dashboard-vue/frontend/.vscode
+covid-dashboard-vue/frontend/package-lock.json
+covid-dashboard-vue/__pycache__
+covid-dashboard-vue/structure_table.txt

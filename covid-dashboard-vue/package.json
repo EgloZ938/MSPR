@@ -1,0 +1,13 @@
+{
+    "name": "covid-dashboard-vue",
+    "version": "1.0.0",
+    "description": "COVID-19 Dashboard with Vue.js frontend and Express backend",
+    "scripts": {
+        "backend": "cd backend && npm start",
+        "frontend": "cd frontend && npm run dev",
+        "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.0"
+    }
+}

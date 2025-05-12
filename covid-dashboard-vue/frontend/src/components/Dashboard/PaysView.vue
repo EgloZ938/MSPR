@@ -39,8 +39,10 @@
       </div>
 
       <country-stats :stats="countryStats" />
-      <country-chart :selectedCountry="activeCountry" @toggle-loading="setLoading" @show-error="showError"
-        @update-stats="updateCountryStats" @country-changed="updatePrimaryCountry" />
+      <country-chart ref="countryChartRef" :selectedCountry="activeCountry" @toggle-loading="setLoading"
+        @show-error="showError" @update-stats="updateCountryStats" @country-changed="updatePrimaryCountry"
+        @chart-type-change="updateChartType" @data-format-change="updateDataFormat" @scale-type-change="updateScaleType"
+        @toggle-dataset="updateDatasetVisibility" @update-color="updateDatasetColor" />
     </template>
 
     <!-- Mode Comparaison : affiche le graphique de comparaison des pays -->
@@ -51,8 +53,12 @@
       <div class="comparison-instructions" v-else>
         <p>Veuillez sélectionner au moins deux pays pour la comparaison</p>
       </div>
-      <multi-country-chart :selectedCountries="selectedCountries" @toggle-loading="setLoading"
-        @show-error="showError" />
+      <multi-country-chart ref="multiCountryChartRef" :selectedCountries="selectedCountries"
+        :chartType="chartOptions.chartType" :dataFormat="chartOptions.dataFormat" :scaleType="chartOptions.scaleType"
+        :datasetConfig="chartOptions.datasets" :colorConfig="chartOptions.colors" @toggle-loading="setLoading"
+        @show-error="showError" @chart-type-change="updateChartType" @data-format-change="updateDataFormat"
+        @scale-type-change="updateScaleType" @toggle-dataset="updateDatasetVisibility"
+        @update-color="updateDatasetColor" />
     </template>
 
     <loading-indicator :is-loading="isLoading" />
@@ -63,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import CountryStats from './CountryStats.vue';
 import CountryChart from '../Charts/CountryChart.vue';
 import MultiCountryChart from '../Charts/MultiCountryChart.vue';
@@ -86,8 +92,31 @@ const isLoading = ref(false);
 const isCoolingDown = ref(false);
 const viewMode = ref('single'); // 'single' ou 'compare'
 
+// Références aux composants de graphiques
+const countryChartRef = ref(null);
+const multiCountryChartRef = ref(null);
+
 // Pays actif pour la vue détaillée (par défaut, le premier pays sélectionné)
 const activeCountry = ref('France');
+
+// Options partagées entre les deux graphiques
+const chartOptions = ref({
+  chartType: 'line',
+  dataFormat: 'raw',
+  scaleType: 'linear',
+  datasets: {
+    confirmed: true,
+    deaths: true,
+    recovered: true,
+    active: true
+  },
+  colors: {
+    confirmed: '#1a73e8',
+    deaths: '#dc3545',
+    recovered: '#28a745',
+    active: '#ffc107'
+  }
+});
 
 // Observer les changements dans selectedCountries pour mettre à jour activeCountry
 watch(selectedCountries, (newCountries) => {
@@ -97,12 +126,41 @@ watch(selectedCountries, (newCountries) => {
   }
 }, { deep: true });
 
+// Synchroniser les options entre les composants lors du changement de mode
+watch(viewMode, (newMode) => {
+  // Laisser un peu de temps pour que les composants soient montés
+  setTimeout(() => {
+    synchronizeChartOptions();
+  }, 100);
+});
+
 // Fonction pour activer le cooldown
 function activateCooldown(duration = 800) {
   isCoolingDown.value = true;
   setTimeout(() => {
     isCoolingDown.value = false;
   }, duration);
+}
+
+// Fonction pour synchroniser les options entre les deux graphiques
+function synchronizeChartOptions() {
+  if (viewMode.value === 'single' && countryChartRef.value) {
+    // Récupérer les options du composant CountryChart s'il est actif
+    const countryChart = countryChartRef.value;
+    if (countryChart.chartType) chartOptions.value.chartType = countryChart.chartType;
+    if (countryChart.dataFormat) chartOptions.value.dataFormat = countryChart.dataFormat;
+    if (countryChart.scaleType) chartOptions.value.scaleType = countryChart.scaleType;
+    if (countryChart.chartConfig?.datasets) chartOptions.value.datasets = { ...countryChart.chartConfig.datasets };
+    if (countryChart.chartConfig?.colors) chartOptions.value.colors = { ...countryChart.chartConfig.colors };
+  } else if (viewMode.value === 'compare' && multiCountryChartRef.value) {
+    // Récupérer les options du composant MultiCountryChart s'il est actif
+    const multiChart = multiCountryChartRef.value;
+    if (multiChart.chartType) chartOptions.value.chartType = multiChart.chartType;
+    if (multiChart.dataFormat) chartOptions.value.dataFormat = multiChart.dataFormat;
+    if (multiChart.scaleType) chartOptions.value.scaleType = multiChart.scaleType;
+    if (multiChart.chartConfig?.datasets) chartOptions.value.datasets = { ...multiChart.chartConfig.datasets };
+    if (multiChart.chartConfig?.colors) chartOptions.value.colors = { ...multiChart.chartConfig.colors };
+  }
 }
 
 function updateSelectedCountries(countries) {
@@ -183,6 +241,35 @@ function changeViewMode(mode) {
   activateCooldown(800);
   viewMode.value = mode;
 }
+
+// Fonctions pour mettre à jour les options partagées
+function updateChartType(type) {
+  chartOptions.value.chartType = type;
+}
+
+function updateDataFormat(format) {
+  chartOptions.value.dataFormat = format;
+}
+
+function updateScaleType(type) {
+  chartOptions.value.scaleType = type;
+}
+
+function updateDatasetVisibility(datasetName) {
+  chartOptions.value.datasets[datasetName] = !chartOptions.value.datasets[datasetName];
+}
+
+function updateDatasetColor({ datasetName, color }) {
+  chartOptions.value.colors[datasetName] = color;
+}
+
+// Synchroniser les options au montage initial
+onMounted(() => {
+  // Attendre que les composants soient montés
+  setTimeout(() => {
+    synchronizeChartOptions();
+  }, 200);
+});
 </script>
 
 <style scoped>

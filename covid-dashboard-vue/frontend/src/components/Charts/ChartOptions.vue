@@ -4,7 +4,7 @@
             <div class="option-group">
                 <label>Type de visualisation</label>
                 <select :id="chartTypeId" v-model="localChartType" @change="emitChartTypeChange"
-                    data-tooltip="Choisissez le type de graphique">
+                    data-tooltip="Choisissez le type de graphique" :disabled="isCoolingDown">
                     <option value="line">Ligne</option>
                     <option value="bar">Barres</option>
                     <option value="area">Aire</option>
@@ -16,7 +16,7 @@
             <div class="option-group">
                 <label>Format des données</label>
                 <select :id="dataFormatId" v-model="localDataFormat" @change="emitDataFormatChange"
-                    data-tooltip="Choisissez le format d'affichage des données">
+                    data-tooltip="Choisissez le format d'affichage des données" :disabled="isCoolingDown">
                     <option value="raw">Valeurs brutes</option>
                     <option value="daily">Variation quotidienne</option>
                     <option v-if="!isCountryView" value="weekly">Moyenne mobile (7j)</option>
@@ -27,7 +27,7 @@
             <div class="option-group" v-if="!isCountryView || isLineView">
                 <label>Échelle Y</label>
                 <select :id="scaleTypeId" v-model="localScaleType" @change="emitScaleTypeChange"
-                    data-tooltip="Choisissez l'échelle de l'axe Y">
+                    data-tooltip="Choisissez l'échelle de l'axe Y" :disabled="isCoolingDown">
                     <option value="linear">Linéaire</option>
                     <option value="logarithmic">Logarithmique</option>
                 </select>
@@ -38,9 +38,10 @@
             <div class="option-group">
                 <label>Datasets visibles</label>
                 <div class="dataset-toggles">
-                    <label v-for="(dataset, key) in datasets" :key="key" class="toggle-item">
+                    <label v-for="(dataset, key) in datasets" :key="key" class="toggle-item"
+                        :class="{ 'disabled': isCoolingDown }">
                         <input type="checkbox" :id="`toggle${key.charAt(0).toUpperCase() + key.slice(1)}`"
-                            :checked="dataset" @change="toggleDataset(key)">
+                            :checked="dataset" @change="toggleDataset(key)" :disabled="isCoolingDown">
                         <span>{{ getDatasetLabel(key) }}</span>
                     </label>
                 </div>
@@ -49,19 +50,25 @@
             <div class="option-group" v-if="showColors">
                 <label>Personnalisation des couleurs</label>
                 <div class="color-options">
-                    <div v-for="(color, key) in colors" :key="key" class="color-option">
+                    <div v-for="(color, key) in colors" :key="key" class="color-option"
+                        :class="{ 'disabled': isCoolingDown }">
                         <input type="color" :id="`${key}Color`" :value="color"
-                            @change="updateColor(key, $event.target.value)">
+                            @change="updateColor(key, $event.target.value)" :disabled="isCoolingDown">
                         <span>{{ getDatasetLabel(key) }}</span>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Mini Loader Overlay -->
+        <mini-loader :show="isCoolingDown" />
     </div>
 </template>
 
 <script setup>
 import { ref, watch, defineProps, defineEmits, computed } from 'vue';
+import { withCooldown } from '../../utils/cooldown';
+import MiniLoader from '../MiniLoader.vue';
 
 const props = defineProps({
     chartType: {
@@ -115,6 +122,7 @@ const emit = defineEmits(['chart-type-change', 'data-format-change', 'scale-type
 const localChartType = ref(props.chartType);
 const localDataFormat = ref(props.dataFormat);
 const localScaleType = ref(props.scaleType);
+const isCoolingDown = ref(false);
 
 const isLineView = computed(() => localChartType.value === 'line');
 
@@ -130,25 +138,44 @@ watch(() => props.scaleType, (newValue) => {
     localScaleType.value = newValue;
 });
 
-function emitChartTypeChange() {
+// Fonction pour activer le cooldown
+function activateCooldown() {
+    isCoolingDown.value = true;
+    setTimeout(() => {
+        isCoolingDown.value = false;
+    }, 800); // Cooldown de 800ms
+}
+
+// Fonctions avec cooldown
+const emitChartTypeChange = function () {
+    if (isCoolingDown.value) return;
+    activateCooldown();
     emit('chart-type-change', localChartType.value);
-}
+};
 
-function emitDataFormatChange() {
+const emitDataFormatChange = function () {
+    if (isCoolingDown.value) return;
+    activateCooldown();
     emit('data-format-change', localDataFormat.value);
-}
+};
 
-function emitScaleTypeChange() {
+const emitScaleTypeChange = function () {
+    if (isCoolingDown.value) return;
+    activateCooldown();
     emit('scale-type-change', localScaleType.value);
-}
+};
 
-function toggleDataset(datasetName) {
+const toggleDataset = function (datasetName) {
+    if (isCoolingDown.value) return;
+    activateCooldown();
     emit('toggle-dataset', datasetName);
-}
+};
 
-function updateColor(datasetName, color) {
+const updateColor = function (datasetName, color) {
+    if (isCoolingDown.value) return;
+    activateCooldown();
     emit('update-color', { datasetName, color });
-}
+};
 
 function getDatasetLabel(key) {
     const labels = {
@@ -163,4 +190,16 @@ function getDatasetLabel(key) {
 
 <style scoped>
 /* Les styles seront lus du fichier assets/style.css global */
+.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.toggle-item.disabled {
+    pointer-events: none;
+}
+
+.color-option.disabled {
+    pointer-events: none;
+}
 </style>

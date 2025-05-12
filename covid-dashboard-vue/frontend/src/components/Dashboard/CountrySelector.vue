@@ -1,6 +1,7 @@
 <template>
   <div class="country-selector-custom">
-    <div class="selected-country" id="selectedCountryDisplay" @click="toggleDropdown">
+    <div class="selected-country" id="selectedCountryDisplay" @click="toggleDropdown"
+      :class="{ 'disabled': isCoolingDown }">
       <span id="selectedCountryText">{{ selectedCountry }}</span>
       <i class="dropdown-icon">▼</i>
     </div>
@@ -11,18 +12,22 @@
       </div>
       <div class="countries-list" id="countriesList">
         <div v-for="country in filteredCountries" :key="country.country_name" class="country-item"
-          :class="{ 'selected': country.country_name === selectedCountry }"
+          :class="{ 'selected': country.country_name === selectedCountry, 'disabled': isCoolingDown }"
           @click="selectCountry(country.country_name)">
           {{ country.country_name }}
         </div>
       </div>
     </div>
+
+    <!-- Mini Loader -->
+    <mini-loader :show="isCoolingDown" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import axios from 'axios';
+import MiniLoader from '../MiniLoader.vue';
 
 const props = defineProps({
   value: {
@@ -38,6 +43,7 @@ const selectedCountry = ref(props.value);
 const countries = ref([]);
 const isDropdownActive = ref(false);
 const searchTerm = ref('');
+const isCoolingDown = ref(false);
 
 const filteredCountries = computed(() => {
   if (!searchTerm.value) return countries.value;
@@ -67,8 +73,19 @@ async function loadCountries() {
   }
 }
 
+// Fonction pour activer le cooldown
+function activateCooldown(duration = 800) {
+  isCoolingDown.value = true;
+  setTimeout(() => {
+    isCoolingDown.value = false;
+  }, duration);
+}
+
 function toggleDropdown(event) {
   event.stopPropagation();
+
+  if (isCoolingDown.value) return;
+
   isDropdownActive.value = !isDropdownActive.value;
 
   if (isDropdownActive.value) {
@@ -89,6 +106,10 @@ function closeDropdown(event) {
 }
 
 function selectCountry(countryName) {
+  if (isCoolingDown.value) return;
+
+  activateCooldown(1000); // Plus long pour le changement de pays car cela recharge beaucoup de données
+
   selectedCountry.value = countryName;
   isDropdownActive.value = false;
   searchTerm.value = '';
@@ -103,4 +124,9 @@ watch(() => props.value, (newValue) => {
 
 <style scoped>
 /* Les styles seront lus du fichier assets/style.css global */
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 </style>

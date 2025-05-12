@@ -9,7 +9,7 @@
             @export="exportData" />
 
         <div class="chart-container">
-            <canvas id="worldChart" ref="worldChart"></canvas>
+            <canvas id="worldChart" ref="worldChartRef"></canvas>
         </div>
     </div>
 </template>
@@ -64,6 +64,13 @@ const updateChart = async () => {
 
         // Traitement des données selon le format
         data = processData(data, dataFormat.value);
+
+        // Vérifier si la référence existe
+        if (!worldChartRef.value) {
+            console.error("La référence worldChartRef est null");
+            emit('show-error', 'Erreur lors de la mise à jour du graphique - référence manquante');
+            return;
+        }
 
         const ctx = worldChartRef.value.getContext('2d');
 

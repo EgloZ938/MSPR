@@ -1,24 +1,33 @@
 <template>
     <div>
-        <ChartOptions :chartType="chartType" :dataFormat="dataFormat" :datasets="chartConfig.datasets" :colors="chartConfig.colors" :is-country-view="true" :show-pie-options="true" @toggle-dataset="toggleDataset" @update-color="updateColor" @chart-type-change="updateChartType" @data-format-change="updateDataFormat" />
+        <ChartOptions :chartType="chartType" :dataFormat="dataFormat" :datasets="chartConfig.datasets"
+            :colors="chartConfig.colors" :is-country-view="true" :show-pie-options="true"
+            @toggle-dataset="toggleDataset" @update-color="updateColor" @chart-type-change="updateChartType"
+            @data-format-change="updateDataFormat" />
 
-        <ChartControls @zoom-in="zoomInCountry" @zoom-out="zoomOutCountry" @reset-zoom="resetCountryZoom" @download="downloadCountryChart" @export="exportCountryData" />
+        <ChartControls @zoom-in="zoomInCountry" @zoom-out="zoomOutCountry" @reset-zoom="resetCountryZoom"
+            @download="downloadCountryChart" @export="exportCountryData" />
 
         <div class="visualization-row">
             <div class="chart-container">
-                <canvas id="countryChart" ref="countryChart"></canvas>
+                <canvas id="countryChart" ref="countryChartRef"></canvas>
             </div>
 
             <!-- Section pour le classement -->
             <div class="ranking-container">
                 <h3>Classement des pays</h3>
                 <div class="ranking-tabs">
-                    <button class="ranking-tab" :class="{ active: activeRankingTab === 'confirmed' }" @click="updateRanking('confirmed')">Cas confirmés</button>
-                    <button class="ranking-tab" :class="{ active: activeRankingTab === 'deaths' }" @click="updateRanking('deaths')">Décès</button>
-                    <button class="ranking-tab" :class="{ active: activeRankingTab === 'mortality' }" @click="updateRanking('mortality')">Taux de mortalité</button>
+                    <button class="ranking-tab" :class="{ active: activeRankingTab === 'confirmed' }"
+                        @click="updateRanking('confirmed')">Cas confirmés</button>
+                    <button class="ranking-tab" :class="{ active: activeRankingTab === 'deaths' }"
+                        @click="updateRanking('deaths')">Décès</button>
+                    <button class="ranking-tab" :class="{ active: activeRankingTab === 'mortality' }"
+                        @click="updateRanking('mortality')">Taux de mortalité</button>
                 </div>
                 <div class="ranking-list" id="countryRanking">
-                    <div v-for="(country, index) in rankings" :key="country.country_region" class="ranking-item" :style="country.country_region === selectedCountry ? 'background-color: rgba(26, 115, 232, 0.1); font-weight: bold;' : ''" @click="selectCountryFromRanking(country.country_region)">
+                    <div v-for="(country, index) in rankings" :key="country.country_region" class="ranking-item"
+                        :style="country.country_region === selectedCountry ? 'background-color: rgba(26, 115, 232, 0.1); font-weight: bold;' : ''"
+                        @click="selectCountryFromRanking(country.country_region)">
                         <span class="rank">{{ index + 1 }}</span>
                         <span class="country">{{ country.country_region }}</span>
                         <span class="value">{{ formatRankingValue(country) }}</span>
@@ -49,6 +58,7 @@ const props = defineProps({
 const emit = defineEmits(['toggle-loading', 'show-error', 'update-stats', 'country-changed']);
 
 const countryChart = ref(null);
+const countryChartRef = ref(null);
 const countryData = ref(null);
 const latestStats = ref(null);
 const chartConfig = ref({
@@ -99,7 +109,14 @@ async function updateCountryChart() {
             });
         }
 
-        const ctx = document.getElementById('countryChart').getContext('2d');
+        // Vérifier si la référence existe
+        if (!countryChartRef.value) {
+            console.error("La référence countryChartRef est null");
+            emit('show-error', 'Erreur lors de la mise à jour du graphique - référence manquante');
+            return;
+        }
+
+        const ctx = countryChartRef.value.getContext('2d');
 
         if (countryChart.value) {
             countryChart.value.destroy();

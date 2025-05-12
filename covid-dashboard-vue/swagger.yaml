@@ -1,0 +1,597 @@
+openapi: 3.0.0
+info:
+  title: API du Tableau de Bord COVID-19
+  description: |
+    Cette API fournit des données COVID-19 pour le tableau de bord, 
+    y compris les statistiques mondiales, par région, par pays, ainsi que 
+    l'évolution temporelle des cas, des décès, des guérisons et des cas actifs.
+  version: 1.0.0
+  contact:
+    name: Support du Tableau de Bord COVID-19
+servers:
+  - url: http://localhost:3000
+    description: Serveur de développement local
+tags:
+  - name: Authentification
+    description: Endpoints d'authentification pour l'accès administrateur
+  - name: Statistiques Globales
+    description: Données globales et mondiales
+  - name: Statistiques par Pays
+    description: Données spécifiques aux pays
+  - name: Statistiques par Région
+    description: Données spécifiques aux régions WHO
+  - name: Filtrage et Comparaison
+    description: Endpoints pour des requêtes de données filtrées et des comparaisons
+paths:
+  /api/admin/login:
+    post:
+      tags:
+        - Authentification
+      summary: Connexion administrateur
+      description: Permet aux administrateurs de se connecter pour accéder aux fonctionnalités protégées
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: admin
+                password:
+                  type: string
+                  example: password
+              required:
+                - username
+                - password
+      responses:
+        "200":
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT token pour l'authentification
+        "401":
+          description: Identifiants incorrects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Identifiants incorrects
+
+  /api/admin/dashboard:
+    get:
+      tags:
+        - Authentification
+      summary: Dashboard administrateur
+      description: Accès au dashboard administrateur protégé
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Accès autorisé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Accès autorisé au dashboard admin
+        "401":
+          description: Token manquant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Token manquant
+        "403":
+          description: Token invalide
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Token invalide
+
+  /api/global-stats:
+    get:
+      tags:
+        - Statistiques Globales
+      summary: Statistiques globales de COVID-19
+      description: Fournit les statistiques mondiales agrégées de COVID-19 (cas confirmés, décès, guérisons, cas actifs)
+      responses:
+        "200":
+          description: Données récupérées avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_confirmed:
+                    type: integer
+                    description: Nombre total de cas confirmés dans le monde
+                    example: 532145000
+                  total_deaths:
+                    type: integer
+                    description: Nombre total de décès dans le monde
+                    example: 6256400
+                  total_recovered:
+                    type: integer
+                    description: Nombre total de patients guéris dans le monde
+                    example: 502687000
+                  total_active:
+                    type: integer
+                    description: Nombre total de cas actifs dans le monde
+                    example: 23201600
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /api/global-timeline:
+    get:
+      tags:
+        - Statistiques Globales
+      summary: Évolution mondiale au fil du temps
+      description: Fournit l'évolution des statistiques mondiales par jour
+      responses:
+        "200":
+          description: Données récupérées avec succès
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    date:
+                      type: string
+                      format: date
+                      example: "2023-01-01"
+                    confirmed:
+                      type: integer
+                      example: 510567800
+                    deaths:
+                      type: integer
+                      example: 6178500
+                    recovered:
+                      type: integer
+                      example: 482356700
+                    active:
+                      type: integer
+                      example: 22032600
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /api/top-countries:
+    get:
+      tags:
+        - Statistiques par Pays
+      summary: Top 10 des pays par nombre de cas
+      description: Retourne les 10 pays avec le plus grand nombre de cas confirmés
+      responses:
+        "200":
+          description: Données récupérées avec succès
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    country_region:
+                      type: string
+                      example: US
+                    confirmed:
+                      type: integer
+                      example: 86380000
+                    deaths:
+                      type: integer
+                      example: 1032000
+                    recovered:
+                      type: integer
+                      example: 81246000
+                    active:
+                      type: integer
+                      example: 4102000
+                    mortality_rate:
+                      type: number
+                      format: float
+                      example: 1.2
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /api/countries:
+    get:
+      tags:
+        - Statistiques par Pays
+      summary: Liste de tous les pays
+      description: Fournit la liste complète des pays avec des informations de base
+      responses:
+        "200":
+          description: Données récupérées avec succès
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1
+                    country_name:
+                      type: string
+                      example: France
+                    continent:
+                      type: string
+                      example: Europe
+                    population:
+                      type: integer
+                      example: 67000000
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /api/country-timeline/{country}:
+    get:
+      tags:
+        - Statistiques par Pays
+      summary: Évolution d'un pays spécifique
+      description: Fournit l'évolution des statistiques pour un pays spécifique par jour
+      parameters:
+        - name: country
+          in: path
+          description: Nom du pays
+          required: true
+          schema:
+            type: string
+            example: France
+      responses:
+        "200":
+          description: Données récupérées avec succès
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    date:
+                      type: string
+                      format: date
+                      example: "2023-01-01"
+                    confirmed:
+                      type: integer
+                      example: 38000000
+                    deaths:
+                      type: integer
+                      example: 156000
+                    recovered:
+                      type: integer
+                      example: 37200000
+                    active:
+                      type: integer
+                      example: 644000
+                    mortality_rate:
+                      type: number
+                      format: float
+                      example: 0.41
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /api/country-details/{country}:
+    get:
+      tags:
+        - Statistiques par Pays
+      summary: Détails d'un pays spécifique
+      description: Fournit des détails supplémentaires pour un pays spécifique (tests, taux par million, cas critiques)
+      parameters:
+        - name: country
+          in: path
+          description: Nom du pays
+          required: true
+          schema:
+            type: string
+            example: France
+      responses:
+        "200":
+          description: Données récupérées avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  country_name:
+                    type: string
+                    example: France
+                  population:
+                    type: integer
+                    example: 67000000
+                  total_tests:
+                    type: integer
+                    example: 271000000
+                  tests_per_million:
+                    type: integer
+                    example: 4045000
+                  cases_per_million:
+                    type: integer
+                    example: 566000
+                  deaths_per_million:
+                    type: integer
+                    example: 2328
+                  serious_critical:
+                    type: integer
+                    example: 934
+                  last_updated:
+                    type: string
+                    format: date
+                    example: "2023-04-15"
+        "404":
+          description: Pays non trouvé ou aucune donnée disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Pays non trouvé ou aucune donnée disponible
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /api/region-stats:
+    get:
+      tags:
+        - Statistiques par Région
+      summary: Statistiques par région WHO
+      description: Fournit les statistiques agrégées par région WHO et par date
+      responses:
+        "200":
+          description: Données récupérées avec succès
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    region_name:
+                      type: string
+                      example: Europe
+                    date:
+                      type: string
+                      format: date
+                      example: "2023-01-01"
+                    confirmed:
+                      type: integer
+                      example: 240000000
+                    deaths:
+                      type: integer
+                      example: 2100000
+                    recovered:
+                      type: integer
+                      example: 234000000
+                    active:
+                      type: integer
+                      example: 3900000
+                    mortality_rate:
+                      type: number
+                      format: float
+                      example: 0.88
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /api/country-comparison:
+    get:
+      tags:
+        - Filtrage et Comparaison
+      summary: Comparaison de pays
+      description: Permet de comparer les statistiques entre plusieurs pays spécifiés
+      parameters:
+        - name: countries
+          in: query
+          description: Liste de pays séparés par des virgules
+          required: true
+          schema:
+            type: string
+            example: France,Germany,Italy
+      responses:
+        "200":
+          description: Données récupérées avec succès
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    country_name:
+                      type: string
+                      example: France
+                    date:
+                      type: string
+                      format: date
+                      example: "2023-01-01"
+                    confirmed:
+                      type: integer
+                      example: 38000000
+                    deaths:
+                      type: integer
+                      example: 156000
+                    recovered:
+                      type: integer
+                      example: 37200000
+                    active:
+                      type: integer
+                      example: 644000
+                    mortality_rate:
+                      type: number
+                      format: float
+                      example: 0.41
+        "400":
+          description: Aucun pays spécifié
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Aucun pays spécifié
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /api/filtered-data:
+    get:
+      tags:
+        - Filtrage et Comparaison
+      summary: Données filtrées
+      description: Permet de filtrer les données par région, date, et nombre de cas
+      parameters:
+        - name: region
+          in: query
+          description: Région WHO (ex. Europe, Americas)
+          schema:
+            type: string
+        - name: dateStart
+          in: query
+          description: Date de début (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: dateEnd
+          in: query
+          description: Date de fin (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: minCases
+          in: query
+          description: Nombre minimum de cas
+          schema:
+            type: integer
+        - name: maxCases
+          in: query
+          description: Nombre maximum de cas
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Données récupérées avec succès
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    country_name:
+                      type: string
+                      example: France
+                    region_name:
+                      type: string
+                      example: Europe
+                    date:
+                      type: string
+                      format: date
+                      example: "2023-01-01"
+                    confirmed:
+                      type: integer
+                      example: 38000000
+                    deaths:
+                      type: integer
+                      example: 156000
+                    recovered:
+                      type: integer
+                      example: 37200000
+                    active:
+                      type: integer
+                      example: 644000
+                    mortality_rate:
+                      type: number
+                      format: float
+                      example: 0.41
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

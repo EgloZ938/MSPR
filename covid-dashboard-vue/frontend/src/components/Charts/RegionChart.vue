@@ -61,7 +61,7 @@
             @download="downloadRegionChart" @export="exportRegionData" />
 
         <div class="chart-container">
-            <canvas id="regionChart" ref="regionChart"></canvas>
+            <canvas id="regionChart" ref="regionChartRef"></canvas>
         </div>
     </div>
 </template>
@@ -183,6 +183,13 @@ const updateRegionChart = async () => {
                 });
             }
         });
+
+        // Vérifier si la référence existe
+        if (!regionChartRef.value) {
+            console.error("La référence regionChartRef est null");
+            emit('show-error', 'Erreur lors de la mise à jour du graphique régional - référence manquante');
+            return;
+        }
 
         const ctx = regionChartRef.value.getContext('2d');
 

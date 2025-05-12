@@ -17,17 +17,21 @@
             <div class="ranking-container">
                 <h3>Classement des pays</h3>
                 <div class="ranking-tabs">
-                    <button class="ranking-tab" :class="{ active: activeRankingTab === 'confirmed' }"
-                        @click="updateRanking('confirmed')">Cas confirmés</button>
-                    <button class="ranking-tab" :class="{ active: activeRankingTab === 'deaths' }"
-                        @click="updateRanking('deaths')">Décès</button>
-                    <button class="ranking-tab" :class="{ active: activeRankingTab === 'mortality' }"
-                        @click="updateRanking('mortality')">Taux de mortalité</button>
+                    <button class="ranking-tab"
+                        :class="{ active: activeRankingTab === 'confirmed', disabled: isCoolingDown }"
+                        @click="handleUpdateRanking('confirmed')" :disabled="isCoolingDown">Cas confirmés</button>
+                    <button class="ranking-tab"
+                        :class="{ active: activeRankingTab === 'deaths', disabled: isCoolingDown }"
+                        @click="handleUpdateRanking('deaths')" :disabled="isCoolingDown">Décès</button>
+                    <button class="ranking-tab"
+                        :class="{ active: activeRankingTab === 'mortality', disabled: isCoolingDown }"
+                        @click="handleUpdateRanking('mortality')" :disabled="isCoolingDown">Taux de mortalité</button>
                 </div>
                 <div class="ranking-list" id="countryRanking">
                     <div v-for="(country, index) in rankings" :key="country.country_region" class="ranking-item"
                         :style="country.country_region === selectedCountry ? 'background-color: rgba(26, 115, 232, 0.1); font-weight: bold;' : ''"
-                        @click="selectCountryFromRanking(country.country_region)">
+                        :class="{ 'disabled': isCoolingDown }"
+                        @click="handleSelectCountryFromRanking(country.country_region)">
                         <span class="rank">{{ index + 1 }}</span>
                         <span class="country">{{ country.country_region }}</span>
                         <span class="value">{{ formatRankingValue(country) }}</span>
@@ -35,15 +39,19 @@
                 </div>
             </div>
         </div>
+
+        <!-- Mini Loader pour indiquer visuellement le cooldown -->
+        <mini-loader :show="isCoolingDown" />
     </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, defineProps, defineEmits } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount, defineProps, defineEmits } from 'vue';
 import Chart from 'chart.js/auto';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import ChartOptions from './ChartOptions.vue';
 import ChartControls from './ChartControls.vue';
+import MiniLoader from '../MiniLoader.vue';
 import axios from 'axios';
 
 Chart.register(zoomPlugin);
@@ -61,6 +69,9 @@ const countryChart = ref(null);
 const countryChartRef = ref(null);
 const countryData = ref(null);
 const latestStats = ref(null);
+const isCoolingDown = ref(false);
+const isDestroyed = ref(false);
+
 const chartConfig = ref({
     datasets: {
         confirmed: true,
@@ -80,11 +91,22 @@ const dataFormat = ref('raw');
 const rankings = ref([]);
 const activeRankingTab = ref('confirmed');
 
+function activateCooldown(duration = 800) {
+    isCoolingDown.value = true;
+    setTimeout(() => {
+        isCoolingDown.value = false;
+    }, duration);
+}
+
 watch(() => props.selectedCountry, () => {
-    updateCountryChart();
+    if (!isDestroyed.value) {
+        updateCountryChart();
+    }
 }, { immediate: true });
 
 async function updateCountryChart() {
+    if (isDestroyed.value) return;
+
     try {
         emit('toggle-loading', true);
 
@@ -94,6 +116,8 @@ async function updateCountryChart() {
             emit('show-error', `Aucune donnée disponible pour ${props.selectedCountry}`);
             return;
         }
+
+        if (isDestroyed.value) return;
 
         let processedData = countryData.value;
         if (dataFormat.value === 'daily') {
@@ -116,11 +140,15 @@ async function updateCountryChart() {
             return;
         }
 
+        if (isDestroyed.value) return;
+
         const ctx = countryChartRef.value.getContext('2d');
 
         if (countryChart.value) {
             countryChart.value.destroy();
         }
+
+        if (isDestroyed.value) return;
 
         if (chartType.value === 'pie' || chartType.value === 'doughnut') {
             const latestData = processedData[processedData.length - 1];
@@ -227,6 +255,8 @@ async function updateCountryChart() {
                         legend: {
                             position: 'top',
                             onClick: (e, legendItem, legend) => {
+                                if (isCoolingDown.value) return;
+
                                 const index = legendItem.datasetIndex;
                                 const ci = legend.chart;
                                 const meta = ci.getDatasetMeta(index);
@@ -269,13 +299,19 @@ async function updateCountryChart() {
             });
         }
 
+        if (isDestroyed.value) return;
+
         await loadCountryRanking(activeRankingTab.value);
 
     } catch (error) {
         console.error('Erreur lors de la mise à jour du graphique du pays:', error);
-        emit('show-error', `Erreur lors de la mise à jour du graphique pour ${props.selectedCountry}`);
+        if (!isDestroyed.value) {
+            emit('show-error', `Erreur lors de la mise à jour du graphique pour ${props.selectedCountry}`);
+        }
     } finally {
-        emit('toggle-loading', false);
+        if (!isDestroyed.value) {
+            emit('toggle-loading', false);
+        }
     }
 }
 
@@ -284,7 +320,7 @@ async function loadCountryStats() {
         const response = await axios.get(`/api/country-timeline/${props.selectedCountry}`);
         countryData.value = response.data;
 
-        if (countryData.value.length > 0) {
+        if (countryData.value.length > 0 && !isDestroyed.value) {
             latestStats.value = countryData.value[countryData.value.length - 1];
             emit('update-stats', {
                 confirmed: latestStats.value.confirmed,
@@ -296,7 +332,9 @@ async function loadCountryStats() {
         }
     } catch (error) {
         console.error('Erreur lors du chargement des statistiques du pays:', error);
-        emit('show-error', `Erreur lors du chargement des statistiques pour ${props.selectedCountry}`);
+        if (!isDestroyed.value) {
+            emit('show-error', `Erreur lors du chargement des statistiques pour ${props.selectedCountry}`);
+        }
     }
 }
 
@@ -305,6 +343,8 @@ async function loadCountryRanking(metric) {
         activeRankingTab.value = metric;
 
         const response = await axios.get('/api/top-countries');
+        if (isDestroyed.value) return;
+
         let countries = response.data;
 
         if (metric === 'confirmed') {
@@ -318,7 +358,9 @@ async function loadCountryRanking(metric) {
         rankings.value = countries.slice(0, 20);
     } catch (error) {
         console.error('Erreur lors du chargement du classement:', error);
-        emit('show-error', 'Erreur lors du chargement du classement des pays');
+        if (!isDestroyed.value) {
+            emit('show-error', 'Erreur lors du chargement du classement des pays');
+        }
     }
 }
 
@@ -348,75 +390,102 @@ function getChartType(selectedType) {
 }
 
 function toggleDataset(datasetName) {
+    if (isCoolingDown.value) return;
+
+    activateCooldown(500);
     chartConfig.value.datasets[datasetName] = !chartConfig.value.datasets[datasetName];
     updateCountryChart();
 }
 
 function updateColor({ datasetName, color }) {
+    if (isCoolingDown.value) return;
+
+    activateCooldown(500);
     chartConfig.value.colors[datasetName] = color;
     updateCountryChart();
 }
 
 function updateChartType(type) {
+    if (isCoolingDown.value) return;
+
+    activateCooldown(800);
     chartType.value = type;
     updateCountryChart();
 }
 
 function updateDataFormat(format) {
+    if (isCoolingDown.value) return;
+
+    activateCooldown(800);
     dataFormat.value = format;
     updateCountryChart();
+}
+
+function handleUpdateRanking(metric) {
+    if (isCoolingDown.value) return;
+
+    activateCooldown(600);
+    updateRanking(metric);
+}
+
+function handleSelectCountryFromRanking(countryName) {
+    if (isCoolingDown.value) return;
+
+    activateCooldown(1200); // Plus long car le chargement d'un nouveau pays est une opération lourde
+    emit('country-changed', countryName);
 }
 
 function updateRanking(metric) {
     loadCountryRanking(metric);
 }
 
-function selectCountryFromRanking(countryName) {
-    emit('country-changed', countryName);
-}
-
 function zoomInCountry() {
-    if (countryChart.value) {
-        const zoomOptions = countryChart.value.options.plugins.zoom.zoom;
-        zoomOptions.wheel.enabled = false;
+    if (isCoolingDown.value || !countryChart.value) return;
 
-        const centerX = countryChart.value.chartArea.width / 2;
-        const centerY = countryChart.value.chartArea.height / 2;
-        countryChart.value.pan({ x: 0, y: 0 }, 'none', 'default');
-        countryChart.value.zoom(1.2, 'xy', { x: centerX, y: centerY });
-    }
+    activateCooldown(300);
+    const zoomOptions = countryChart.value.options.plugins.zoom.zoom;
+    zoomOptions.wheel.enabled = false;
+
+    const centerX = countryChart.value.chartArea.width / 2;
+    const centerY = countryChart.value.chartArea.height / 2;
+    countryChart.value.pan({ x: 0, y: 0 }, 'none', 'default');
+    countryChart.value.zoom(1.2, 'xy', { x: centerX, y: centerY });
 }
 
 function zoomOutCountry() {
-    if (countryChart.value) {
-        const zoomOptions = countryChart.value.options.plugins.zoom.zoom;
-        zoomOptions.wheel.enabled = false;
+    if (isCoolingDown.value || !countryChart.value) return;
 
-        const centerX = countryChart.value.chartArea.width / 2;
-        const centerY = countryChart.value.chartArea.height / 2;
-        countryChart.value.pan({ x: 0, y: 0 }, 'none', 'default');
-        countryChart.value.zoom(0.8, 'xy', { x: centerX, y: centerY });
-    }
+    activateCooldown(300);
+    const zoomOptions = countryChart.value.options.plugins.zoom.zoom;
+    zoomOptions.wheel.enabled = false;
+
+    const centerX = countryChart.value.chartArea.width / 2;
+    const centerY = countryChart.value.chartArea.height / 2;
+    countryChart.value.pan({ x: 0, y: 0 }, 'none', 'default');
+    countryChart.value.zoom(0.8, 'xy', { x: centerX, y: centerY });
 }
 
 function resetCountryZoom() {
-    if (countryChart.value) {
-        countryChart.value.resetZoom();
-    }
+    if (isCoolingDown.value || !countryChart.value) return;
+
+    activateCooldown(300);
+    countryChart.value.resetZoom();
 }
 
 function downloadCountryChart() {
-    if (countryChart.value) {
-        const link = document.createElement('a');
-        link.download = `covid-${props.selectedCountry.toLowerCase()}-chart.png`;
-        link.href = countryChart.value.toBase64Image();
-        link.click();
-    }
+    if (isCoolingDown.value || !countryChart.value) return;
+
+    activateCooldown(1000);
+    const link = document.createElement('a');
+    link.download = `covid-${props.selectedCountry.toLowerCase()}-chart.png`;
+    link.href = countryChart.value.toBase64Image();
+    link.click();
 }
 
 function exportCountryData() {
-    if (!countryData.value) return;
+    if (isCoolingDown.value || !countryData.value) return;
 
+    activateCooldown(1000);
     const rows = [['Date', 'Confirmed', 'Deaths', 'Recovered', 'Active', 'Mortality Rate']];
     countryData.value.forEach(item => {
         rows.push([
@@ -454,8 +523,23 @@ function formatRankingValue(country) {
     }
     return '';
 }
+
+// Nettoyage des ressources lors du démontage du composant
+onBeforeUnmount(() => {
+    isDestroyed.value = true;
+
+    if (countryChart.value) {
+        countryChart.value.destroy();
+        countryChart.value = null;
+    }
+});
 </script>
 
 <style scoped>
 /* Les styles seront lus du fichier assets/style.css global */
+.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 </style>

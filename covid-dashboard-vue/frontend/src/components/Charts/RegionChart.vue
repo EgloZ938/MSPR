@@ -5,7 +5,7 @@
                 <div class="option-group">
                     <label>Type de visualisation</label>
                     <select id="regionChartType" v-model="chartType" @change="updateRegionChart"
-                        data-tooltip="Choisissez le type de graphique">
+                        data-tooltip="Choisissez le type de graphique" :disabled="isCoolingDown">
                         <option value="line">Ligne</option>
                         <option value="bar">Barres</option>
                         <option value="area">Aire</option>
@@ -15,7 +15,7 @@
                 <div class="option-group">
                     <label>Format des données</label>
                     <select id="regionDataFormat" v-model="dataFormat" @change="updateRegionChart"
-                        data-tooltip="Choisissez le format d'affichage des données">
+                        data-tooltip="Choisissez le format d'affichage des données" :disabled="isCoolingDown">
                         <option value="raw">Valeurs brutes</option>
                         <option value="daily">Variation quotidienne</option>
                     </select>
@@ -24,7 +24,7 @@
                 <div class="option-group">
                     <label>Échelle Y</label>
                     <select id="regionScaleType" v-model="scaleType" @change="updateRegionChart"
-                        data-tooltip="Choisissez l'échelle de l'axe Y">
+                        data-tooltip="Choisissez l'échelle de l'axe Y" :disabled="isCoolingDown">
                         <option value="linear">Linéaire</option>
                         <option value="logarithmic">Logarithmique</option>
                     </select>
@@ -35,9 +35,11 @@
                 <div class="option-group">
                     <label>Régions visibles</label>
                     <div class="dataset-toggles" id="regionToggles">
-                        <label v-for="region in regions" :key="region" class="toggle-item">
+                        <label v-for="region in regions" :key="region" class="toggle-item"
+                            :class="{ 'disabled': isCoolingDown }">
                             <input type="checkbox" :id="`toggle${region.replace(/\s+/g, '')}`"
-                                :checked="regionConfig.datasets[region]" @change="toggleRegion(region)">
+                                :checked="regionConfig.datasets[region]" @change="toggleRegion(region)"
+                                :disabled="isCoolingDown">
                             <span>{{ region }}</span>
                         </label>
                     </div>
@@ -46,10 +48,11 @@
                 <div class="option-group">
                     <label>Personnalisation des couleurs</label>
                     <div class="color-options" id="regionColors">
-                        <div v-for="region in regions" :key="region" class="color-option">
+                        <div v-for="region in regions" :key="region" class="color-option"
+                            :class="{ 'disabled': isCoolingDown }">
                             <input type="color" :id="`color${region.replace(/\s+/g, '')}`"
                                 :value="regionConfig.colors[region] || defaultRegionColors[region] || '#000000'"
-                                @change="updateRegionColor(region, $event.target.value)">
+                                @change="updateRegionColor(region, $event.target.value)" :disabled="isCoolingDown">
                             <span>{{ region }}</span>
                         </div>
                     </div>
@@ -63,15 +66,19 @@
         <div class="chart-container">
             <canvas id="regionChart" ref="regionChartRef"></canvas>
         </div>
+
+        <!-- Mini Loader -->
+        <mini-loader :show="isCoolingDown" />
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import Chart from 'chart.js/auto';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import ChartControls from './ChartControls.vue';
 import axios from 'axios';
+import MiniLoader from '../MiniLoader.vue';
 
 Chart.register(zoomPlugin);
 
@@ -83,6 +90,8 @@ const regionChart = ref(null);
 const regionChartRef = ref(null);
 const regionData = ref(null);
 const regions = ref([]);
+const isCoolingDown = ref(false);
+const isDestroyed = ref(false);
 
 // Variables réactives
 const regionConfig = ref({
@@ -103,14 +112,28 @@ const chartType = ref('line');
 const dataFormat = ref('raw');
 const scaleType = ref('linear');
 
-// Méthodes
+// Fonction pour activer le cooldown
+function activateCooldown(duration = 800) {
+    isCoolingDown.value = true;
+    setTimeout(() => {
+        isCoolingDown.value = false;
+    }, duration);
+}
+
+// Méthodes avec cooldown
 const updateRegionChart = async () => {
+    if (isCoolingDown.value || isDestroyed.value) return;
+
+    activateCooldown();
+
     try {
         emit('toggle-loading', true);
 
         // Récupération des données
         const response = await axios.get('/api/region-stats');
         let data = response.data;
+
+        if (isDestroyed.value) return;
 
         // Stocker les données pour l'export CSV
         regionData.value = data;
@@ -128,6 +151,8 @@ const updateRegionChart = async () => {
                     '#' + Math.floor(Math.random() * 16777215).toString(16); // Couleur aléatoire si non définie
             }
         });
+
+        if (isDestroyed.value) return;
 
         // Regrouper les données par date pour faciliter le calcul des variations quotidiennes
         let groupedByDate = {};
@@ -161,6 +186,8 @@ const updateRegionChart = async () => {
             }
         }
 
+        if (isDestroyed.value) return;
+
         // Réorganiser les données pour le graphique
         const datasets = [];
         regions.value.forEach(region => {
@@ -191,11 +218,15 @@ const updateRegionChart = async () => {
             return;
         }
 
+        if (isDestroyed.value) return;
+
         const ctx = regionChartRef.value.getContext('2d');
 
         if (regionChart.value) {
             regionChart.value.destroy();
         }
+
+        if (isDestroyed.value) return;
 
         // Créer le graphique
         regionChart.value = new Chart(ctx, {
@@ -235,6 +266,8 @@ const updateRegionChart = async () => {
                             color: '#666'
                         },
                         onClick: (e, legendItem, legend) => {
+                            if (isCoolingDown.value) return;
+
                             const index = legendItem.datasetIndex;
                             const ci = legend.chart;
                             const meta = ci.getDatasetMeta(index);
@@ -304,9 +337,13 @@ const updateRegionChart = async () => {
 
     } catch (error) {
         console.error('Erreur:', error);
-        emit('show-error', 'Erreur lors de la mise à jour du graphique régional');
+        if (!isDestroyed.value) {
+            emit('show-error', 'Erreur lors de la mise à jour du graphique régional');
+        }
     } finally {
-        emit('toggle-loading', false);
+        if (!isDestroyed.value) {
+            emit('toggle-loading', false);
+        }
     }
 };
 
@@ -322,46 +359,57 @@ const getChartType = (selectedType) => {
 };
 
 const toggleRegion = (region) => {
+    if (isCoolingDown.value) return;
+
+    activateCooldown(500);
     regionConfig.value.datasets[region] = !regionConfig.value.datasets[region];
     document.getElementById(`toggle${region.replace(/\s+/g, '')}`).checked = regionConfig.value.datasets[region];
     updateRegionChart();
 };
 
 const updateRegionColor = (region, color) => {
+    if (isCoolingDown.value) return;
+
+    activateCooldown(500);
     regionConfig.value.colors[region] = color;
     updateRegionChart();
 };
 
 const zoomInRegion = () => {
-    if (regionChart.value) {
-        regionChart.value.zoom(1.2); // Zoom de 20%
-    }
+    if (isCoolingDown.value || !regionChart.value) return;
+
+    activateCooldown(300);
+    regionChart.value.zoom(1.2); // Zoom de 20%
 };
 
 const zoomOutRegion = () => {
-    if (regionChart.value) {
-        regionChart.value.zoom(0.8); // Zoom out de 20%
-    }
+    if (isCoolingDown.value || !regionChart.value) return;
+
+    activateCooldown(300);
+    regionChart.value.zoom(0.8); // Zoom out de 20%
 };
 
 const resetRegionZoom = () => {
-    if (regionChart.value) {
-        regionChart.value.resetZoom();
-    }
+    if (isCoolingDown.value || !regionChart.value) return;
+
+    activateCooldown(300);
+    regionChart.value.resetZoom();
 };
 
 const downloadRegionChart = () => {
-    if (regionChart.value) {
-        const link = document.createElement('a');
-        link.download = 'region-chart.png';
-        link.href = regionChart.value.toBase64Image();
-        link.click();
-    }
+    if (isCoolingDown.value || !regionChart.value) return;
+
+    activateCooldown(1000);
+    const link = document.createElement('a');
+    link.download = 'region-chart.png';
+    link.href = regionChart.value.toBase64Image();
+    link.click();
 };
 
 const exportRegionData = () => {
-    if (!regionData.value) return;
+    if (isCoolingDown.value || !regionData.value) return;
 
+    activateCooldown(1000);
     const rows = [['Date', 'Region', 'Confirmed', 'Deaths', 'Recovered', 'Active']];
     regionData.value.forEach(item => {
         rows.push([
@@ -389,6 +437,16 @@ const formatNumber = (num) => {
     return new Intl.NumberFormat().format(num);
 };
 
+// Nettoyage des ressources lors du démontage du composant
+onBeforeUnmount(() => {
+    isDestroyed.value = true;
+
+    if (regionChart.value) {
+        regionChart.value.destroy();
+        regionChart.value = null;
+    }
+});
+
 // Cycle de vie du composant
 onMounted(() => {
     updateRegionChart();
@@ -397,4 +455,9 @@ onMounted(() => {
 
 <style scoped>
 /* Les styles seront lus du fichier assets/style.css global */
+.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 </style>

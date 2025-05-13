@@ -1,9 +1,5 @@
 <template>
     <div>
-        <ChartOptions :chartType="chartType" :dataFormat="dataFormat" :scaleType="scaleType"
-            :datasets="chartConfig.datasets" :colors="chartConfig.colors" @toggle-dataset="toggleDataset"
-            @update-color="updateColor" @chart-type-change="updateChartType" @data-format-change="updateDataFormat"
-            @scale-type-change="updateScaleType" />
 
         <ChartControls @zoom-in="zoomIn" @zoom-out="zoomOut" @reset-zoom="resetZoom" @download="downloadChart"
             @export="exportData" />

@@ -26,7 +26,7 @@ import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue';
 import Chart from 'chart.js/auto';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import ChartOptions from './ChartOptions.vue';
-import ChartControls from './ChartControls.vue';
+import ChartControls from './ChartControlsResponsive.vue';
 import MiniLoader from '../MiniLoader.vue';
 import axios from 'axios';
 

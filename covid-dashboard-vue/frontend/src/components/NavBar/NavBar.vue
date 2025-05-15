@@ -1,25 +1,26 @@
 <template>
   <nav class="navbar">
     <div class="nav-container">
-      <h1>COVID-19 Dashboard</h1>
-      <div class="nav-links">
-        <a href="#" class="nav-link" :class="{ active: activeView === 'mondial', disabled: isCoolingDown }"
-          @click.prevent="handleChangeView('mondial')" data-tooltip="Statistiques mondiales">Vue Mondiale</a>
-        <a href="#" class="nav-link" :class="{ active: activeView === 'regions', disabled: isCoolingDown }"
-          @click.prevent="handleChangeView('regions')" data-tooltip="Analyse par région">Par Région</a>
-        <a href="#" class="nav-link" :class="{ active: activeView === 'pays', disabled: isCoolingDown }"
-          @click.prevent="handleChangeView('pays')" data-tooltip="Données par pays">Par Pays</a>
-        <a href="#" class="nav-link" :class="{ active: activeView === 'correlation', disabled: isCoolingDown }"
-          @click.prevent="handleChangeView('correlation')" data-tooltip="Analyse des corrélations">Corrélations</a>
-        <a href="#" class="nav-link" :class="{ active: activeView === 'tendances', disabled: isCoolingDown }"
-          @click.prevent="handleChangeView('tendances')" data-tooltip="Analyse des tendances">Tendances</a>
+      <h1 class="navbar-title">COVID-19 Dashboard</h1>
+
+      <!-- Navigation desktop -->
+      <div class="nav-links desktop-nav">
+        <a v-for="item in menuItems" :key="item.view" href="#" class="nav-link"
+          :class="{ active: activeView === item.view, disabled: isCoolingDown }"
+          @click.prevent="handleChangeView(item.view)" :data-tooltip="item.tooltip">
+          {{ item.label }}
+        </a>
       </div>
+
+      <!-- Menu burger pour mobile -->
+      <BurgerMenu :active-view="activeView" @change-view="handleChangeView" />
     </div>
   </nav>
 </template>
 
 <script setup>
 import { defineProps, defineEmits, ref } from 'vue';
+import BurgerMenu from './BurgerMenu.vue';
 
 const props = defineProps({
   activeView: {
@@ -30,6 +31,13 @@ const props = defineProps({
 
 const emit = defineEmits(['change-view']);
 const isCoolingDown = ref(false);
+
+// Liste des éléments du menu avec leurs propriétés
+const menuItems = [
+  { view: 'mondial', label: 'Vue Mondiale', tooltip: 'Statistiques mondiales' },
+  { view: 'regions', label: 'Par Région', tooltip: 'Analyse par région' },
+  { view: 'pays', label: 'Par Pays', tooltip: 'Données par pays' },
+];
 
 function activateCooldown(duration = 800) {
   isCoolingDown.value = true;
@@ -51,7 +59,44 @@ function handleChangeView(view) {
 </script>
 
 <style scoped>
-/* Les styles seront lus du fichier assets/style.css global */
+/* Base styles from global CSS */
+
+/* Responsive adjustments */
+.navbar-title {
+  font-size: 1.2rem;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.desktop-nav {
+  display: flex;
+}
+
+/* Media Queries */
+@media (max-width: 768px) {
+  .desktop-nav {
+    display: none;
+    /* Cacher la navigation desktop sur mobile */
+  }
+
+  .navbar-title {
+    font-size: 1.1rem;
+    /* Titre plus petit sur mobile */
+  }
+
+  .nav-container {
+    padding: 0 15px;
+    /* Padding réduit sur mobile */
+  }
+}
+
+/* Très petits écrans */
+@media (max-width: 350px) {
+  .navbar-title {
+    font-size: 1rem;
+  }
+}
+
 .disabled {
   opacity: 0.7;
   cursor: not-allowed;

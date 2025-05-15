@@ -19,7 +19,7 @@ import { ref, onMounted } from 'vue';
 import Chart from 'chart.js/auto';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import ChartOptions from './ChartOptions.vue';
-import ChartControls from './ChartControls.vue';
+import ChartControls from './ChartControlsResponsive.vue';
 import axios from 'axios';
 
 Chart.register(zoomPlugin);

@@ -6,6 +6,11 @@
   --text-primary: #2c3e50;
   --text-secondary: #5f6368;
   --border-color: #dde1e7;
+
+  --mobile-breakpoint: 576px;
+  --tablet-breakpoint: 768px;
+  --laptop-breakpoint: 992px;
+  --desktop-breakpoint: 1200px;
 }
 
 * {
@@ -255,8 +260,10 @@ input:not([type="color"]):focus {
 /* Additional Chart Controls */
 .chart-controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 15px;
+  width: 100%;
 }
 
 .control-btn {
@@ -536,4 +543,272 @@ input:not([type="color"]):focus {
 .search-input:focus {
   outline: none;
   border-color: var(--primary-color);
+}
+
+.container {
+  padding: 10px;
+}
+
+/* Ajustements pour les sections de visualisation */
+.visualization-section {
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+/* Responsive pour les cards statistiques */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr); /* 2 colonnes sur tablette */
+    gap: 10px;
+  }
+
+  .country-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .stat-card h3 {
+    font-size: 0.9em;
+  }
+
+  .stat-card .number {
+    font-size: 1.5em;
+  }
+}
+
+@media (max-width: 576px) {
+  .stats-grid {
+    grid-template-columns: repeat(
+      2,
+      1fr
+    ); /* Garder 2 colonnes même sur mobile */
+  }
+
+  .country-stats-grid {
+    grid-template-columns: 1fr 1fr; /* Garder 2 colonnes sur mobile */
+  }
+
+  .stat-card {
+    padding: 12px;
+  }
+
+  .stat-card h3 {
+    font-size: 0.8em;
+    margin-bottom: 5px;
+  }
+
+  .stat-card .number {
+    font-size: 1.3em;
+  }
+}
+
+/* Ajustements pour les options des graphiques */
+@media (max-width: 992px) {
+  .options-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .options-panel {
+    padding: 12px;
+  }
+
+  .options-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .option-group {
+    padding: 12px;
+  }
+
+  .dataset-toggles,
+  .color-options {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Responsive pour les graphiques */
+@media (max-width: 768px) {
+  .chart-container {
+    height: 400px; /* Hauteur réduite sur tablette */
+    padding: 10px;
+  }
+
+  .chart-controls {
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+  }
+
+  .control-btn {
+    font-size: 0.9em;
+    padding: 6px 12px;
+  }
+
+  /* Ajustement pour la layout du graphique et du classement côte à côte */
+  .visualization-row {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .ranking-container {
+    height: 300px;
+  }
+}
+
+@media (max-width: 576px) {
+  .chart-container {
+    height: 350px; /* Hauteur encore plus réduite sur mobile */
+    margin-top: 10px;
+  }
+
+  .control-btn {
+    font-size: 0.8em;
+    padding: 5px 10px;
+  }
+
+  .control-btn:nth-child(1),
+  .control-btn:nth-child(2) {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+/* Adaptation des sélecteurs de pays et régions pour mobile */
+@media (max-width: 768px) {
+  .country-selector-custom .selected-country,
+  .multi-country-selector .selected-countries {
+    font-size: 0.9em;
+  }
+
+  .multi-country-selector .selected-country-tag {
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+
+  .dropdown-container {
+    max-height: 250px;
+  }
+
+  .countries-list {
+    max-height: 200px;
+  }
+
+  .active-country-selector {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .active-country-selector label {
+    margin-bottom: 10px;
+  }
+
+  .active-country-buttons {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .active-country-buttons button {
+    padding: 6px 12px;
+    font-size: 0.9em;
+  }
+
+  .view-toggle-buttons {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .view-toggle-buttons button {
+    width: 100%;
+  }
+}
+
+/* Amélioration de l'espacement pour le contenu principal */
+@media (max-width: 768px) {
+  body {
+    padding-top: 50px; /* Réduire le padding-top pour la navbar plus petite */
+  }
+
+  .container {
+    margin-top: 1rem;
+  }
+
+  /* Améliorer la taille des tooltips sur mobile */
+  [data-tooltip]:before {
+    width: auto;
+    max-width: 80vw;
+    white-space: normal;
+    padding: 8px;
+    font-size: 11px;
+  }
+}
+
+/* Optimisations supplémentaires pour les très petits écrans */
+@media (max-width: 350px) {
+  .chart-controls {
+    justify-content: space-between;
+  }
+
+  .control-btn {
+    padding: 4px 8px;
+    font-size: 0.75em;
+  }
+
+  .stat-card .number {
+    font-size: 1.1em;
+  }
+}
+
+/* Adaptation du contenu pour l'orientation paysage sur mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  body {
+    padding-top: 40px;
+  }
+
+  .navbar {
+    padding: 8px 0;
+  }
+
+  .chart-container {
+    height: calc(100vh - 230px);
+    min-height: 200px;
+  }
+
+  .mobile-menu {
+    padding-top: 50px;
+  }
+}
+
+button[id*="télécharger"],
+button[id*="exporter"],
+.control-btn,
+.reset-btn,
+.download-btn,
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  height: auto !important;
+  width: auto !important;
+  line-height: normal !important;
+}
+
+.chart-controls button,
+button[id*="télécharger"],
+button[id*="exporter"],
+.control-btn,
+.reset-btn,
+.download-btn,
+.export-btn {
+  margin-right: 10px;
+  margin-bottom: 10px;
+}
+
+.download-export-container {
+  display: inline-flex;
+  gap: 10px;
 }

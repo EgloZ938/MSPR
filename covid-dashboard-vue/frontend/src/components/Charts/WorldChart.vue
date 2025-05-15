@@ -192,16 +192,40 @@ const getChartOptions = () => {
         scales: {
             y: {
                 type: scaleType.value,
-                beginAtZero: true,
+                beginAtZero: scaleType.value === 'linear',
+                min: scaleType.value === 'logarithmic' ? 1 : 0, // Valeur minimale pour l'échelle log
                 grid: {
-                    color: 'rgba(0,0,0,0.1)'
+                    color: function (context) {
+                        // Lignes de grille plus foncées pour les puissances de 10 en échelle log
+                        if (scaleType.value === 'logarithmic') {
+                            const value = context.tick.value;
+                            if (value === 1 || value === 10 || value === 100 ||
+                                value === 1000 || value === 10000 || value === 100000 ||
+                                value === 1000000 || value === 10000000) {
+                                return 'rgba(0, 0, 0, 0.2)';
+                            }
+                            return 'rgba(0, 0, 0, 0.05)';
+                        }
+                        return 'rgba(0, 0, 0, 0.1)';
+                    }
                 },
                 ticks: {
                     color: '#666',
-                    callback: (value) => {
-                        if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
-                        if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
-                        return value;
+                    callback: function (value) {
+                        // Formatage spécial pour l'échelle logarithmique
+                        if (scaleType.value === 'logarithmic') {
+                            if (value === 1 || value === 10 || value === 100 ||
+                                value === 1000 || value === 10000 || value === 100000 ||
+                                value === 1000000 || value === 10000000) {
+                                return formatNumber(value);
+                            }
+                            return '';
+                        } else {
+                            // Formatage standard pour l'échelle linéaire
+                            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                            if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
+                            return value;
+                        }
                     }
                 }
             },
@@ -217,10 +241,6 @@ const getChartOptions = () => {
                 }
             }
         },
-        animation: {
-            duration: 750,
-            easing: 'easeInOutQuart'
-        }
     };
 };
 
@@ -236,16 +256,28 @@ const processData = (data, format) => {
                 active: (item.active / totals[i]) * 100
             }));
         case 'daily':
-            return data.map((item, index) => {
-                if (index === 0) return item;
-                return {
-                    ...item,
-                    confirmed: item.confirmed - data[index - 1].confirmed,
-                    deaths: item.deaths - data[index - 1].deaths,
-                    recovered: item.recovered - data[index - 1].recovered,
-                    active: item.active - data[index - 1].active
-                };
+            // Créer une copie des données pour éviter de modifier les originales
+            let dailyData = [];
+
+            // Traiter chaque point de données
+            data.forEach((item, index) => {
+                if (index === 0) {
+                    // Premier jour : garder les valeurs d'origine
+                    dailyData.push({ ...item });
+                } else {
+                    // Jours suivants : calculer la différence avec le jour précédent
+                    const previous = data[index - 1];
+                    dailyData.push({
+                        ...item,
+                        confirmed: Math.max(0, item.confirmed - previous.confirmed), // Éviter les valeurs négatives
+                        deaths: Math.max(0, item.deaths - previous.deaths),
+                        recovered: Math.max(0, item.recovered - previous.recovered),
+                        active: item.active - previous.active // Peut être négatif légitimement
+                    });
+                }
             });
+
+            return dailyData;
         case 'weekly':
             return calculateMovingAverage(data, 7);
         case 'monthly':

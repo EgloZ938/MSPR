@@ -27,9 +27,9 @@
             <div class="option-group" v-if="!isCountryView || isLineView">
                 <label>Échelle Y</label>
                 <select :id="scaleTypeId" v-model="localScaleType" @change="emitScaleTypeChange"
-                    data-tooltip="Choisissez l'échelle de l'axe Y" :disabled="isCoolingDown">
-                    <option value="linear">Linéaire</option>
-                    <option value="logarithmic">Logarithmique</option>
+                    data-tooltip="L'échelle logarithmique montre mieux les taux de croissance" :disabled="isCoolingDown">
+                    <option value="linear">Linéaire (standard)</option>
+                    <option value="logarithmic">Logarithmique (puissances de 10)</option>
                 </select>
             </div>
         </div>

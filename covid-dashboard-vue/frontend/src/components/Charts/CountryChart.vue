@@ -121,15 +121,28 @@ async function updateCountryChart() {
 
         let processedData = countryData.value;
         if (dataFormat.value === 'daily') {
-            processedData = countryData.value.map((item, index) => {
-                if (index === 0) return item;
-                return {
-                    ...item,
-                    confirmed: item.confirmed - countryData.value[index - 1].confirmed,
-                    deaths: item.deaths - countryData.value[index - 1].deaths,
-                    recovered: item.recovered - countryData.value[index - 1].recovered,
-                    active: item.active - countryData.value[index - 1].active
-                };
+            // Créer un nouveau tableau pour les variations quotidiennes
+            processedData = [];
+
+            // Traiter chaque jour
+            countryData.value.forEach((item, index) => {
+                if (index === 0) {
+                    // Premier jour : garder les valeurs d'origine
+                    processedData.push({ ...item });
+                } else {
+                    // Jours suivants : calculer la différence avec le jour précédent
+                    const previous = countryData.value[index - 1];
+                    processedData.push({
+                        ...item,
+                        confirmed: Math.max(0, item.confirmed - previous.confirmed), // Éviter les valeurs négatives
+                        deaths: Math.max(0, item.deaths - previous.deaths),
+                        recovered: Math.max(0, item.recovered - previous.recovered),
+                        active: item.active - previous.active, // Peut être négatif légitimement
+                        // Recalculer le taux de mortalité pour la variation quotidienne
+                        mortality_rate: item.deaths && item.confirmed ?
+                            ((item.deaths - previous.deaths) / (item.confirmed - previous.confirmed) * 100) : 0
+                    });
+                }
             });
         }
 
@@ -285,16 +298,55 @@ async function updateCountryChart() {
                     },
                     scales: {
                         y: {
-                            beginAtZero: true,
+                            type: scaleType ? scaleType.value : 'linear', // Assurez-vous que scaleType existe
+                            beginAtZero: !scaleType || scaleType.value === 'linear',
+                            min: scaleType && scaleType.value === 'logarithmic' ? 1 : 0, // Valeur minimale pour l'échelle log
+                            grid: {
+                                color: function (context) {
+                                    // Lignes de grille plus foncées pour les puissances de 10 en échelle log
+                                    if (scaleType && scaleType.value === 'logarithmic') {
+                                        const value = context.tick.value;
+                                        if (value === 1 || value === 10 || value === 100 ||
+                                            value === 1000 || value === 10000 || value === 100000 ||
+                                            value === 1000000 || value === 10000000) {
+                                            return 'rgba(0, 0, 0, 0.2)';
+                                        }
+                                        return 'rgba(0, 0, 0, 0.05)';
+                                    }
+                                    return 'rgba(0, 0, 0, 0.1)';
+                                }
+                            },
                             ticks: {
-                                callback: (value) => {
-                                    if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
-                                    if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
-                                    return value;
+                                callback: function (value) {
+                                    // Formatage spécial pour l'échelle logarithmique
+                                    if (scaleType && scaleType.value === 'logarithmic') {
+                                        if (value === 1 || value === 10 || value === 100 ||
+                                            value === 1000 || value === 10000 || value === 100000 ||
+                                            value === 1000000 || value === 10000000) {
+                                            return formatNumber(value);
+                                        }
+                                        return '';
+                                    } else {
+                                        // Formatage standard pour l'échelle linéaire
+                                        if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                                        if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
+                                        return value;
+                                    }
                                 }
                             }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#666',
+                                maxRotation: 45,
+                                minRotation: 45,
+                                maxTicksLimit: 12
+                            }
                         }
-                    }
+                    },
                 }
             });
         }
@@ -483,29 +535,41 @@ function downloadCountryChart() {
 }
 
 function exportCountryData() {
-    if (isCoolingDown.value || !countryData.value) return;
+    if (isCoolingDown.value || !countryData.value) {
+        console.error("Export impossible:", isCoolingDown.value ? "Cooldown actif" : "Données non disponibles");
+        return;
+    }
 
-    activateCooldown(1000);
-    const rows = [['Date', 'Confirmed', 'Deaths', 'Recovered', 'Active', 'Mortality Rate']];
-    countryData.value.forEach(item => {
-        rows.push([
-            new Date(item.date).toLocaleDateString(),
-            item.confirmed,
-            item.deaths,
-            item.recovered,
-            item.active,
-            item.mortality_rate.toFixed(2)
-        ]);
-    });
+    try {
+        activateCooldown(1000);
+        console.log("Exportation des données pour", props.selectedCountry);
 
-    const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `covid-${props.selectedCountry.toLowerCase()}-data.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        const rows = [['Date', 'Confirmed', 'Deaths', 'Recovered', 'Active', 'Mortality Rate']];
+        countryData.value.forEach(item => {
+            rows.push([
+                new Date(item.date).toLocaleDateString(),
+                item.confirmed,
+                item.deaths,
+                item.recovered,
+                item.active,
+                item.mortality_rate ? item.mortality_rate.toFixed(2) : '0.00'
+            ]);
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `covid-${props.selectedCountry.toLowerCase()}-data.csv`);
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+            document.body.removeChild(link);
+        }, 100);
+    } catch (error) {
+        console.error("Erreur lors de l'exportation des données:", error);
+        emit('show-error', "Erreur lors de l'exportation des données");
+    }
 }
 
 function formatNumber(num) {

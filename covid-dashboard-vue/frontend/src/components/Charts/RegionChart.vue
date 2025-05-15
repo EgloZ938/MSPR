@@ -24,9 +24,9 @@
                 <div class="option-group">
                     <label>Échelle Y</label>
                     <select id="regionScaleType" v-model="scaleType" @change="updateRegionChart"
-                        data-tooltip="Choisissez l'échelle de l'axe Y" :disabled="isCoolingDown">
-                        <option value="linear">Linéaire</option>
-                        <option value="logarithmic">Logarithmique</option>
+                        data-tooltip="L'échelle logarithmique montre mieux les taux de croissance" :disabled="isCoolingDown">
+                        <option value="linear">Linéaire (standard)</option>
+                        <option value="logarithmic">Logarithmique (puissances de 10)</option>
                     </select>
                 </div>
             </div>
@@ -122,9 +122,7 @@ function activateCooldown(duration = 800) {
 
 // Méthodes avec cooldown
 const updateRegionChart = async () => {
-    if (isCoolingDown.value || isDestroyed.value) return;
-
-    activateCooldown();
+    if (isDestroyed.value) return;
 
     try {
         emit('toggle-loading', true);
@@ -148,7 +146,7 @@ const updateRegionChart = async () => {
             }
             if (regionConfig.value.colors[region] === undefined) {
                 regionConfig.value.colors[region] = defaultRegionColors[region] ||
-                    '#' + Math.floor(Math.random() * 16777215).toString(16); // Couleur aléatoire si non définie
+                    '#' + Math.floor(Math.random() * 16777215).toString(16);
             }
         });
 
@@ -168,22 +166,79 @@ const updateRegionChart = async () => {
 
         // Traitement des données selon le format sélectionné
         if (dataFormat.value === 'daily') {
-            for (let i = 1; i < sortedDates.length; i++) {
-                const currentDate = sortedDates[i];
-                const previousDate = sortedDates[i - 1];
+            // Créer une copie des données pour les variations quotidiennes
+            // afin de ne pas modifier les données originales
+            const dailyData = JSON.parse(JSON.stringify(data));
 
+            // Créer un nouveau regroupement pour les données quotidiennes
+            let dailyGroupedByDate = {};
+
+            // Préparer la structure avec les mêmes dates que les données d'origine
+            sortedDates.forEach(date => {
+                dailyGroupedByDate[date] = {};
                 regions.value.forEach(region => {
-                    const current = groupedByDate[currentDate][region];
-                    const previous = groupedByDate[previousDate][region];
+                    // Initialiser chaque région pour cette date
+                    dailyGroupedByDate[date][region] = null;
+                });
+            });
+
+            // Calculer les variations quotidiennes
+            regions.value.forEach(region => {
+                for (let i = 1; i < sortedDates.length; i++) {
+                    const currentDate = sortedDates[i];
+                    const previousDate = sortedDates[i - 1];
+
+                    const current = groupedByDate[currentDate] ? groupedByDate[currentDate][region] : null;
+                    const previous = groupedByDate[previousDate] ? groupedByDate[previousDate][region] : null;
 
                     if (current && previous) {
-                        current.confirmed = current.confirmed - previous.confirmed;
-                        current.deaths = current.deaths - previous.deaths;
-                        current.recovered = current.recovered - previous.recovered;
-                        current.active = current.active - previous.active;
+                        // Créer un nouvel objet pour cette région et cette date
+                        dailyGroupedByDate[currentDate][region] = {
+                            confirmed: Math.max(0, current.confirmed - previous.confirmed), // Éviter les valeurs négatives
+                            deaths: Math.max(0, current.deaths - previous.deaths),
+                            recovered: Math.max(0, current.recovered - previous.recovered),
+                            active: current.active - previous.active // Peut être négatif légitimement
+                        };
+                    } else if (current && !previous) {
+                        // Si on a des données aujourd'hui mais pas hier, on prend les valeurs d'aujourd'hui
+                        dailyGroupedByDate[currentDate][region] = {
+                            confirmed: current.confirmed,
+                            deaths: current.deaths,
+                            recovered: current.recovered,
+                            active: current.active
+                        };
+                    } else {
+                        // Pas de données pour cette région à cette date
+                        dailyGroupedByDate[currentDate][region] = {
+                            confirmed: 0,
+                            deaths: 0,
+                            recovered: 0,
+                            active: 0
+                        };
                     }
-                });
-            }
+                }
+
+                // Traiter spécialement la première date
+                const firstDate = sortedDates[0];
+                if (groupedByDate[firstDate] && groupedByDate[firstDate][region]) {
+                    dailyGroupedByDate[firstDate][region] = {
+                        confirmed: groupedByDate[firstDate][region].confirmed,
+                        deaths: groupedByDate[firstDate][region].deaths,
+                        recovered: groupedByDate[firstDate][region].recovered,
+                        active: groupedByDate[firstDate][region].active
+                    };
+                } else {
+                    dailyGroupedByDate[firstDate][region] = {
+                        confirmed: 0,
+                        deaths: 0,
+                        recovered: 0,
+                        active: 0
+                    };
+                }
+            });
+
+            // Utiliser le nouveau regroupement pour le graphique
+            groupedByDate = dailyGroupedByDate;
         }
 
         if (isDestroyed.value) return;
@@ -260,41 +315,28 @@ const updateRegionChart = async () => {
                     },
                     legend: {
                         position: 'top',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 15,
-                            color: '#666'
-                        },
-                        onClick: (e, legendItem, legend) => {
-                            if (isCoolingDown.value) return;
+                        onClick: function (e, legendItem, legend) {
+                            // Récupérer la région/légende
+                            const region = legendItem.text;
 
-                            const index = legendItem.datasetIndex;
-                            const ci = legend.chart;
-                            const meta = ci.getDatasetMeta(index);
+                            // Mettre à jour la configuration
+                            regionConfig.value.datasets[region] = !regionConfig.value.datasets[region];
 
-                            meta.hidden = meta.hidden === null ? !ci.data.datasets[index].hidden : null;
-                            ci.update();
+                            // Détruire et recréer le graphique
+                            regionChart.value.destroy();
+                            regionChart.value = null;
 
-                            // Mise à jour des toggles
-                            const region = ci.data.datasets[index].label;
-                            regionConfig.value.datasets[region] = !meta.hidden;
-
-                            if (document.getElementById(`toggle${region.replace(/\s+/g, '')}`)) {
-                                document.getElementById(`toggle${region.replace(/\s+/g, '')}`).checked = !meta.hidden;
-                            }
+                            // Recréer le graphique avec la nouvelle configuration
+                            setTimeout(() => {
+                                updateRegionChart();
+                            }, 50);
                         }
                     },
                     tooltip: {
                         mode: 'index',
                         intersect: false,
-                        backgroundColor: 'rgba(255,255,255,0.9)',
-                        titleColor: '#666',
-                        bodyColor: '#666',
-                        borderColor: 'rgba(0,0,0,0.1)',
-                        borderWidth: 1,
-                        padding: 10,
                         callbacks: {
-                            label: (context) => {
+                            label: function (context) {
                                 return `${context.dataset.label}: ${formatNumber(context.raw)}`;
                             }
                         }
@@ -303,16 +345,39 @@ const updateRegionChart = async () => {
                 scales: {
                     y: {
                         type: scaleType.value,
-                        beginAtZero: true,
+                        beginAtZero: scaleType.value === 'linear',
+                        min: scaleType.value === 'logarithmic' ? 1 : 0, // Valeur minimale pour l'échelle log
                         grid: {
-                            color: 'rgba(0,0,0,0.1)'
+                            color: function (context) {
+                                // Lignes de grille plus foncées pour les puissances de 10 en échelle log
+                                if (scaleType.value === 'logarithmic') {
+                                    const value = context.tick.value;
+                                    if (value === 1 || value === 10 || value === 100 ||
+                                        value === 1000 || value === 10000 || value === 100000 ||
+                                        value === 1000000 || value === 10000000) {
+                                        return 'rgba(0, 0, 0, 0.2)';
+                                    }
+                                    return 'rgba(0, 0, 0, 0.05)';
+                                }
+                                return 'rgba(0, 0, 0, 0.1)';
+                            }
                         },
                         ticks: {
-                            color: '#666',
-                            callback: (value) => {
-                                if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
-                                if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
-                                return value;
+                            callback: function (value) {
+                                // Formatage spécial pour l'échelle logarithmique
+                                if (scaleType.value === 'logarithmic') {
+                                    if (value === 1 || value === 10 || value === 100 ||
+                                        value === 1000 || value === 10000 || value === 100000 ||
+                                        value === 1000000 || value === 10000000) {
+                                        return formatNumber(value);
+                                    }
+                                    return '';
+                                } else {
+                                    // Formatage standard pour l'échelle linéaire
+                                    if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                                    if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
+                                    return value;
+                                }
                             }
                         }
                     },
@@ -328,10 +393,6 @@ const updateRegionChart = async () => {
                         }
                     }
                 },
-                animation: {
-                    duration: 750,
-                    easing: 'easeInOutQuart'
-                }
             }
         });
 
@@ -358,78 +419,125 @@ const getChartType = (selectedType) => {
     }
 };
 
+// SOLUTION FONCTIONNELLE : RECRÉER COMPLÈTEMENT LE GRAPHIQUE À CHAQUE CHANGEMENT
 const toggleRegion = (region) => {
     if (isCoolingDown.value) return;
-
     activateCooldown(500);
+
+    // Inverser la valeur
     regionConfig.value.datasets[region] = !regionConfig.value.datasets[region];
-    document.getElementById(`toggle${region.replace(/\s+/g, '')}`).checked = regionConfig.value.datasets[region];
-    updateRegionChart();
+
+    // Détruire le graphique existant
+    if (regionChart.value) {
+        regionChart.value.destroy();
+        regionChart.value = null;
+    }
+
+    // Attendre un peu puis recréer complètement le graphique
+    setTimeout(() => {
+        updateRegionChart();
+    }, 50);
 };
 
+// SOLUTION FONCTIONNELLE : RECRÉER COMPLÈTEMENT LE GRAPHIQUE À CHAQUE CHANGEMENT
 const updateRegionColor = (region, color) => {
     if (isCoolingDown.value) return;
-
     activateCooldown(500);
+
+    // Mettre à jour la couleur
     regionConfig.value.colors[region] = color;
-    updateRegionChart();
+
+    // Détruire le graphique existant
+    if (regionChart.value) {
+        regionChart.value.destroy();
+        regionChart.value = null;
+    }
+
+    // Attendre un peu puis recréer complètement le graphique
+    setTimeout(() => {
+        updateRegionChart();
+    }, 50);
 };
 
 const zoomInRegion = () => {
     if (isCoolingDown.value || !regionChart.value) return;
-
     activateCooldown(300);
-    regionChart.value.zoom(1.2); // Zoom de 20%
+
+    const centerX = regionChart.value.chartArea.width / 2;
+    const centerY = regionChart.value.chartArea.height / 2;
+
+    regionChart.value.zoom(1.2, 'xy', { x: centerX, y: centerY });
 };
 
 const zoomOutRegion = () => {
     if (isCoolingDown.value || !regionChart.value) return;
-
     activateCooldown(300);
-    regionChart.value.zoom(0.8); // Zoom out de 20%
+
+    const centerX = regionChart.value.chartArea.width / 2;
+    const centerY = regionChart.value.chartArea.height / 2;
+
+    regionChart.value.zoom(0.8, 'xy', { x: centerX, y: centerY });
 };
 
 const resetRegionZoom = () => {
     if (isCoolingDown.value || !regionChart.value) return;
-
     activateCooldown(300);
+
     regionChart.value.resetZoom();
 };
 
 const downloadRegionChart = () => {
     if (isCoolingDown.value || !regionChart.value) return;
-
     activateCooldown(1000);
-    const link = document.createElement('a');
-    link.download = 'region-chart.png';
-    link.href = regionChart.value.toBase64Image();
-    link.click();
+
+    try {
+        const link = document.createElement('a');
+        link.download = 'region-chart.png';
+        link.href = regionChart.value.toBase64Image();
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (error) {
+        console.error('Erreur lors du téléchargement:', error);
+        emit('show-error', 'Erreur lors du téléchargement du graphique');
+    }
 };
 
 const exportRegionData = () => {
     if (isCoolingDown.value || !regionData.value) return;
-
     activateCooldown(1000);
-    const rows = [['Date', 'Region', 'Confirmed', 'Deaths', 'Recovered', 'Active']];
-    regionData.value.forEach(item => {
-        rows.push([
-            new Date(item.date).toLocaleDateString(),
-            item.region_name,
-            item.confirmed,
-            item.deaths,
-            item.recovered,
-            item.active
-        ]);
-    });
 
-    const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "region_data.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+        const rows = [['Date', 'Region', 'Confirmed', 'Deaths', 'Recovered', 'Active', 'Mortality Rate']];
+
+        regionData.value.forEach(item => {
+            rows.push([
+                new Date(item.date).toLocaleDateString(),
+                item.region_name,
+                item.confirmed,
+                item.deaths,
+                item.recovered,
+                item.active,
+                item.mortality_rate ? item.mortality_rate.toFixed(2) + '%' : '0%'
+            ]);
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "region_data.csv");
+        document.body.appendChild(link);
+        link.click();
+
+        // Ajouter un délai avant de supprimer le lien
+        setTimeout(() => {
+            document.body.removeChild(link);
+        }, 100);
+    } catch (error) {
+        console.error('Erreur lors de l\'exportation:', error);
+        emit('show-error', 'Erreur lors de l\'exportation des données');
+    }
 };
 
 const formatNumber = (num) => {

@@ -38,6 +38,7 @@ const menuItems = [
     { view: 'mondial', label: 'Vue Mondiale' },
     { view: 'regions', label: 'Par Région' },
     { view: 'pays', label: 'Par Pays' },
+    { view: 'modele', label: 'Modèle prédictif'},
 ];
 
 function toggleMenu() {

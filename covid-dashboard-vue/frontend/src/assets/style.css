@@ -454,6 +454,10 @@ input:not([type="color"]):focus {
   color: var(--primary-color);
 }
 
+.aleatoire {
+  background-color: black;
+}
+
 /* Responsive design */
 @media (max-width: 992px) {
   .visualization-row {

@@ -1,7 +1,7 @@
 <template>
-  <div id="tendances" class="visualization-section">
+  <div id="modele" class="visualization-section">
     <div class="coming-soon">
-      <h2>Analyse des tendances</h2>
+      <h2>Modèle prédictif</h2>
       <p>Cette fonctionnalité sera disponible prochainement.</p>
     </div>
   </div>

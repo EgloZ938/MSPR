@@ -37,6 +37,7 @@ const menuItems = [
   { view: 'mondial', label: 'Vue Mondiale', tooltip: 'Statistiques mondiales' },
   { view: 'regions', label: 'Par Région', tooltip: 'Analyse par région' },
   { view: 'pays', label: 'Par Pays', tooltip: 'Données par pays' },
+  { view: 'modele', label: 'Modèle prédictif', tooltip: 'Modèle prédictif des données' },
 ];
 
 function activateCooldown(duration = 800) {

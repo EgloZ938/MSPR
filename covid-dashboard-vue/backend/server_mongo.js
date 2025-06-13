@@ -11,8 +11,8 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Configuration MongoDB
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://theoevonwebmaster:<db_password>@cluster0.gpnsshs.mongodb.net/';
-const DB_NAME = process.env.DB_NAME || 'covid_db';
+const MONGO_URI = process.env.MONGO_URI;
+const DB_NAME = process.env.DB_NAME;
 
 let db;
 

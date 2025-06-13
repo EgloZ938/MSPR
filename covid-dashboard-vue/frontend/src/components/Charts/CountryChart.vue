@@ -1,9 +1,10 @@
 <template>
     <div>
-        <ChartOptions :chartType="chartType" :dataFormat="dataFormat" :datasets="chartConfig.datasets"
-            :colors="chartConfig.colors" :is-country-view="true" :show-pie-options="true"
-            @toggle-dataset="toggleDataset" @update-color="updateColor" @chart-type-change="updateChartType"
-            @data-format-change="updateDataFormat" />
+        <ChartOptions :chartType="chartType" :dataFormat="dataFormat" :scaleType="scaleType"
+            :datasets="chartConfig.datasets" :colors="chartConfig.colors" :is-country-view="true"
+            :show-pie-options="true" @toggle-dataset="toggleDataset" @update-color="updateColor"
+            @chart-type-change="updateChartType" @data-format-change="updateDataFormat"
+            @scale-type-change="updateScaleType" />
 
         <ChartControls @zoom-in="zoomInCountry" @zoom-out="zoomOutCountry" @reset-zoom="resetCountryZoom"
             @download="downloadCountryChart" @export="exportCountryData" />
@@ -88,6 +89,7 @@ const chartConfig = ref({
 });
 const chartType = ref('line');
 const dataFormat = ref('raw');
+const scaleType = ref('linear');
 const rankings = ref([]);
 const activeRankingTab = ref('confirmed');
 
@@ -298,13 +300,13 @@ async function updateCountryChart() {
                     },
                     scales: {
                         y: {
-                            type: scaleType ? scaleType.value : 'linear', // Assurez-vous que scaleType existe
-                            beginAtZero: !scaleType || scaleType.value === 'linear',
-                            min: scaleType && scaleType.value === 'logarithmic' ? 1 : 0, // Valeur minimale pour l'échelle log
+                            type: scaleType.value,
+                            beginAtZero: scaleType.value === 'linear',
+                            min: scaleType.value === 'logarithmic' ? 1 : 0, // Valeur minimale pour l'échelle log
                             grid: {
                                 color: function (context) {
                                     // Lignes de grille plus foncées pour les puissances de 10 en échelle log
-                                    if (scaleType && scaleType.value === 'logarithmic') {
+                                    if (scaleType.value === 'logarithmic') {
                                         const value = context.tick.value;
                                         if (value === 1 || value === 10 || value === 100 ||
                                             value === 1000 || value === 10000 || value === 100000 ||
@@ -319,7 +321,7 @@ async function updateCountryChart() {
                             ticks: {
                                 callback: function (value) {
                                     // Formatage spécial pour l'échelle logarithmique
-                                    if (scaleType && scaleType.value === 'logarithmic') {
+                                    if (scaleType.value === 'logarithmic') {
                                         if (value === 1 || value === 10 || value === 100 ||
                                             value === 1000 || value === 10000 || value === 100000 ||
                                             value === 1000000 || value === 10000000) {
@@ -470,6 +472,14 @@ function updateDataFormat(format) {
 
     activateCooldown(800);
     dataFormat.value = format;
+    updateCountryChart();
+}
+
+function updateScaleType(type) {
+    if (isCoolingDown.value) return;
+
+    activateCooldown(500);
+    scaleType.value = type;
     updateCountryChart();
 }
 

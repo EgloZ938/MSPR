@@ -38,8 +38,6 @@ const menuItems = [
     { view: 'mondial', label: 'Vue Mondiale' },
     { view: 'regions', label: 'Par Région' },
     { view: 'pays', label: 'Par Pays' },
-    { view: 'correlation', label: 'Corrélations' },
-    { view: 'tendances', label: 'Tendances' }
 ];
 
 function toggleMenu() {

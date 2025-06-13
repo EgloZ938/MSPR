@@ -19,8 +19,6 @@
                     data-tooltip="Choisissez le format d'affichage des données" :disabled="isCoolingDown">
                     <option value="raw">Valeurs brutes</option>
                     <option value="daily">Variation quotidienne</option>
-                    <option v-if="!isCountryView" value="weekly">Moyenne mobile (7j)</option>
-                    <option v-if="!isCountryView" value="monthly">Moyenne mobile (30j)</option>
                 </select>
             </div>
 

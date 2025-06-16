@@ -1,0 +1,34 @@
+# API FastAPI (versions compatibles Python 3.8)
+fastapi==0.95.2
+uvicorn[standard]==0.22.0
+pydantic==1.10.12
+
+# Machine Learning et Deep Learning
+torch==2.0.1
+torchvision==0.15.2
+torchaudio==2.0.2
+numpy==1.24.3
+pandas==2.0.3
+scikit-learn==1.3.0
+
+# Base de données et data processing
+pymongo==4.3.3
+
+# Visualisation et métriques
+matplotlib==3.7.2
+seaborn==0.12.2
+plotly==5.15.0
+
+# Utilitaires
+joblib==1.3.2
+python-dotenv==1.0.0
+python-multipart==0.0.6
+
+# Date et time utilities
+python-dateutil==2.8.2
+
+# Gestion des erreurs HTTP
+httpx==0.24.1
+
+# Typing extensions pour Python 3.8
+typing-extensions==4.7.1

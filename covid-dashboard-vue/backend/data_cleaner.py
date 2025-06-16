@@ -105,7 +105,8 @@ ALLOWED_COLUMNS = {
     'usa_county_wise.csv': ['FIPS', 'Admin2', 'Province_State', 'Lat', 'Long_', 'Date', 'Confirmed', 'Deaths'],
      'covid_pooled': ['region','country','age_group','pop_date','pop_male','pop_female','pop_both','death_reference_date','death_reference_date_type','cum_death_male','cum_death_female','cum_death_both'],
      'Cum_deaths_by_age_sex':  ['region','country','age_group','death_reference_date','death_reference_date_type','cum_death_male','cum_death_female','cum_death_both'],
-     'covid_pooled_AS':  ['region','country','age_group','death_reference_date','death_reference_date_type','cum_death_male','cum_death_female','cum_death_both']
+     'covid_pooled_AS':  ['region','country','age_group','death_reference_date','death_reference_date_type','cum_death_male','cum_death_female','cum_death_both'],
+     'population-density.csv':  ['Entity','Code','Year','Population density']
 }
 
 def clean_file(file_name):
@@ -172,3 +173,5 @@ def clean_all_files():
 
 if __name__ == "__main__":
     clean_all_files()
+
+

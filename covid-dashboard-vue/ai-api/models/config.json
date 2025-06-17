@@ -1,0 +1,14 @@
+{
+  "sequence_length": 30,
+  "model_architecture": "LSTM Hybride COVID - Lecture CSV",
+  "input_features": [
+    "confirmed",
+    "deaths",
+    "recovered",
+    "active"
+  ],
+  "demographic_features": 6,
+  "training_date": "2025-06-17T13:21:56.371174",
+  "device": "cpu",
+  "data_source": "CSV files direct"
+}

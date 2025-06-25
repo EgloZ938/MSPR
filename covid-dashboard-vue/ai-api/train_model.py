@@ -32,7 +32,7 @@ DB_NAME = os.getenv('DB_NAME')
 MODEL_DIR = 'models'
 SEQUENCE_LENGTH = 30
 BATCH_SIZE = 32
-EPOCHS = 100
+EPOCHS = 150
 LEARNING_RATE = 0.001
 CSV_DATA_PATH = '../data/dataset_clean'
 
@@ -41,7 +41,7 @@ os.makedirs(MODEL_DIR, exist_ok=True)
 
 class CovidLSTM(nn.Module):
     """Modèle LSTM hybride pour prédiction COVID avec features enrichies"""
-    def __init__(self, input_size=4, hidden_size=128, num_layers=2, enriched_features=10, dropout=0.2):
+    def __init__(self, input_size=4, hidden_size=128, num_layers=2, enriched_features=12, dropout=0.2):
         super(CovidLSTM, self).__init__()
         
         self.lstm = nn.LSTM(
@@ -52,7 +52,7 @@ class CovidLSTM(nn.Module):
             batch_first=True
         )
         
-        # Couches pour les features enrichies (démographie + vaccination + etc.)
+        # Couches pour les features enrichies (vaccination + démographie + temporel)
         self.enriched_fc = nn.Sequential(
             nn.Linear(enriched_features, 64),
             nn.ReLU(),
@@ -125,7 +125,6 @@ class HybridCovidTrainer:
         """Charge les données COVID principales depuis MongoDB"""
         logger.info("📊 Chargement des données COVID depuis MongoDB...")
         
-        # Récupérer toutes les séries temporelles avec pays
         pipeline = [
             {
                 "$lookup": {
@@ -163,101 +162,189 @@ class HybridCovidTrainer:
         
         return covid_df
     
+    def load_vaccination_data_from_csv(self):
+        """Charge les données de vaccination depuis le CSV"""
+        logger.info("💉 Chargement des données de vaccination depuis CSV...")
+        
+        vaccination_file = os.path.join(CSV_DATA_PATH, 'cumulative-covid-vaccinations_clean.csv')
+        
+        if not os.path.exists(vaccination_file):
+            logger.warning(f"⚠️ Fichier de vaccination non trouvé: {vaccination_file}")
+            return pd.DataFrame()
+        
+        try:
+            vacc_df = pd.read_csv(vaccination_file)
+            
+            # Nettoyer les noms de colonnes
+            vacc_df.columns = vacc_df.columns.str.strip()
+            
+            # Vérifier les colonnes essentielles
+            required_cols = ['country', 'date', 'cumulative_vaccinations', 'daily_vaccinations']
+            missing_cols = [col for col in required_cols if col not in vacc_df.columns]
+            
+            if missing_cols:
+                logger.error(f"❌ Colonnes manquantes dans le CSV de vaccination: {missing_cols}")
+                logger.info(f"📋 Colonnes disponibles: {list(vacc_df.columns)}")
+                return pd.DataFrame()
+            
+            # Convertir les types
+            vacc_df['date'] = pd.to_datetime(vacc_df['date'], errors='coerce')
+            vacc_df['cumulative_vaccinations'] = pd.to_numeric(vacc_df['cumulative_vaccinations'], errors='coerce')
+            vacc_df['daily_vaccinations'] = pd.to_numeric(vacc_df['daily_vaccinations'], errors='coerce')
+            
+            # Supprimer les lignes avec des dates invalides
+            vacc_df = vacc_df.dropna(subset=['date'])
+            
+            # Remplir les valeurs manquantes de vaccination par 0
+            vacc_df['cumulative_vaccinations'] = vacc_df['cumulative_vaccinations'].fillna(0)
+            vacc_df['daily_vaccinations'] = vacc_df['daily_vaccinations'].fillna(0)
+            
+            # Supprimer les valeurs négatives
+            vacc_df['cumulative_vaccinations'] = vacc_df['cumulative_vaccinations'].clip(lower=0)
+            vacc_df['daily_vaccinations'] = vacc_df['daily_vaccinations'].clip(lower=0)
+            
+            logger.info(f"💉 {len(vacc_df)} enregistrements de vaccination chargés")
+            logger.info(f"🏳️ {vacc_df['country'].nunique()} pays avec données de vaccination")
+            logger.info(f"📅 Vaccination du {vacc_df['date'].min().strftime('%Y-%m-%d')} au {vacc_df['date'].max().strftime('%Y-%m-%d')}")
+            
+            return vacc_df
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur lors du chargement des données de vaccination: {e}")
+            return pd.DataFrame()
+    
     def load_enrichment_data_from_csv(self):
-        """Charge les données d'enrichissement depuis les CSV"""
+        """Charge les données d'enrichissement depuis les CSV (VERSION CORRIGÉE)"""
         logger.info("📂 Chargement des données d'enrichissement depuis CSV...")
         
         enrichment_data = {}
         
-        # 1. Données de vaccination
-        vaccination_file = os.path.join(CSV_DATA_PATH, 'cumulative-covid-vaccinations_clean.csv')
-        if os.path.exists(vaccination_file):
-            vacc_df = pd.read_csv(vaccination_file)
-            vacc_df['date'] = pd.to_datetime(vacc_df['date'])
-            enrichment_data['vaccination'] = vacc_df
-            logger.info(f"💉 Vaccination: {len(vacc_df)} enregistrements")
+        # 1. Données de vaccination (CORRIGÉ)
+        enrichment_data['vaccination'] = self.load_vaccination_data_from_csv()
         
-        # 2. Données démographiques (si disponibles)
+        # 2. Données démographiques (CORRIGÉES POUR GÉRER LES VALEURS ABERRANTES)
         demo_files = glob.glob(os.path.join(CSV_DATA_PATH, "*age*clean.csv"))
         demo_files.extend(glob.glob(os.path.join(CSV_DATA_PATH, "*pooled*clean.csv")))
+        demo_files.extend(glob.glob(os.path.join(CSV_DATA_PATH, "Cum_deaths_by_age_sex*clean.csv")))
         
         if demo_files:
             demo_dfs = []
-            for file in demo_files[:3]:  # Limiter à 3 fichiers pour éviter la surcharge
+            for file in demo_files[:5]:  # Augmenter le nombre de fichiers
                 try:
                     df = pd.read_csv(file)
-                    if 'country' in df.columns and 'age_group' in df.columns:
+                    logger.info(f"📋 Fichier: {os.path.basename(file)} - Colonnes: {list(df.columns)}")
+                    
+                    if 'country' in df.columns:
+                        # Nettoyer les données démographiques problématiques
+                        numeric_cols = ['cum_death_male', 'cum_death_female', 'cum_death_both']
+                        for col in numeric_cols:
+                            if col in df.columns:
+                                # Convertir en numérique et nettoyer les valeurs aberrantes
+                                df[col] = pd.to_numeric(df[col], errors='coerce')
+                                # Remplacer les valeurs > 10000 par NaN (probablement des erreurs)
+                                df.loc[df[col] > 10000, col] = np.nan
+                                # Remplir les NaN par 0
+                                df[col] = df[col].fillna(0)
+                        
+                        # Filtrer les lignes "Total" qui peuvent fausser les statistiques
+                        if 'age_group' in df.columns:
+                            df = df[~df['age_group'].str.contains('Total', case=False, na=False)]
+                        
                         demo_dfs.append(df)
-                except:
+                        logger.info(f"✅ Fichier démographique chargé: {os.path.basename(file)} ({len(df)} lignes)")
+                except Exception as e:
+                    logger.warning(f"⚠️ Erreur lors du chargement de {file}: {e}")
                     continue
             
             if demo_dfs:
                 demo_df = pd.concat(demo_dfs, ignore_index=True)
+                
+                # Nettoyer encore une fois après la concaténation
+                if 'cum_death_both' in demo_df.columns:
+                    demo_df['cum_death_both'] = demo_df['cum_death_both'].clip(upper=1000)  # Limite réaliste
+                
                 enrichment_data['demographics'] = demo_df
-                logger.info(f"👥 Démographie: {len(demo_df)} enregistrements")
+                logger.info(f"👥 {len(demo_df)} enregistrements démographiques au total")
+                logger.info(f"👥 Pays uniques dans les données démographiques: {demo_df['country'].nunique()}")
+                logger.info(f"👥 Échantillon de pays: {demo_df['country'].unique()[:10]}")
         
         logger.info(f"✅ {len(enrichment_data)} types de données d'enrichissement chargés")
         return enrichment_data
     
     def merge_covid_with_enrichment(self, covid_df, enrichment_data):
-        """Fusionne les données COVID avec les enrichissements"""
+        """Fusionne les données COVID avec les enrichissements (VERSION CORRIGÉE)"""
         logger.info("🔗 Fusion des données COVID avec enrichissements...")
         
-        # Créer une copie pour travailler
         merged_df = covid_df.copy()
         
-        # Ajouter les données de vaccination
-        if 'vaccination' in enrichment_data:
-            vacc_df = enrichment_data['vaccination']
+        # === FUSION AVEC LES DONNÉES DE VACCINATION (CORRIGÉ) ===
+        if 'vaccination' in enrichment_data and len(enrichment_data['vaccination']) > 0:
+            vacc_df = enrichment_data['vaccination'].copy()
             
-            # Grouper par pays et date pour éviter les doublons
-            vacc_grouped = vacc_df.groupby(['country', 'date']).agg({
-                'cumulative_vaccinations': 'max',
-                'daily_vaccinations': 'max'
-            }).reset_index()
+            logger.info("💉 Fusion avec les données de vaccination...")
             
-            # Merger avec les données COVID
+            # Créer une clé de jointure normalisée pour éviter les problèmes de casse/espaces
+            def normalize_country_name(name):
+                return str(name).strip().lower()
+            
+            # Normaliser les noms de pays
+            merged_df['country_normalized'] = merged_df['country_name'].apply(normalize_country_name)
+            vacc_df['country_normalized'] = vacc_df['country'].apply(normalize_country_name)
+            
+            # Convertir les dates au même format
+            merged_df['date_only'] = merged_df['date'].dt.date
+            vacc_df['date_only'] = vacc_df['date'].dt.date
+            
+            # Merger sur les noms de pays normalisés et les dates
             merged_df = merged_df.merge(
-                vacc_grouped, 
-                left_on=['country_name', 'date'], 
-                right_on=['country', 'date'], 
+                vacc_df[['country_normalized', 'date_only', 'cumulative_vaccinations', 'daily_vaccinations']],
+                left_on=['country_normalized', 'date_only'],
+                right_on=['country_normalized', 'date_only'],
                 how='left'
             )
             
-            # Remplir les valeurs manquantes de vaccination
+            # Supprimer les colonnes temporaires
+            merged_df = merged_df.drop(['country_normalized', 'date_only'], axis=1)
+            
+            # Remplir les valeurs manquantes par 0
             merged_df['cumulative_vaccinations'] = merged_df['cumulative_vaccinations'].fillna(0)
             merged_df['daily_vaccinations'] = merged_df['daily_vaccinations'].fillna(0)
             
-            # Supprimer la colonne country dupliquée
-            if 'country' in merged_df.columns:
-                merged_df = merged_df.drop('country', axis=1)
+            # Calculer le taux de vaccination (pour 100 habitants)
+            merged_df['vaccination_rate'] = merged_df['cumulative_vaccinations'] / merged_df['confirmed'].clip(lower=1) * 100
+            merged_df['vaccination_rate'] = merged_df['vaccination_rate'].fillna(0).clip(upper=200)  # Limite réaliste
+            
+            # Statistiques de fusion
+            countries_with_vacc = merged_df[merged_df['cumulative_vaccinations'] > 0]['country_name'].nunique()
+            total_countries = merged_df['country_name'].nunique()
+            
+            logger.info(f"💉 Vaccination fusionnée: {countries_with_vacc}/{total_countries} pays ont des données de vaccination")
+            logger.info(f"💉 Max vaccinations cumulées: {merged_df['cumulative_vaccinations'].max():,.0f}")
+            
         else:
+            logger.warning("⚠️ Pas de données de vaccination disponibles")
             merged_df['cumulative_vaccinations'] = 0
             merged_df['daily_vaccinations'] = 0
+            merged_df['vaccination_rate'] = 0
         
-        # Ajouter des features démographiques simplifiées
-        if 'demographics' in enrichment_data:
+        # === FUSION AVEC LES DONNÉES DÉMOGRAPHIQUES ===
+        if 'demographics' in enrichment_data and len(enrichment_data['demographics']) > 0:
             demo_df = enrichment_data['demographics']
             
-            # Vérifier quelles colonnes sont disponibles
-            logger.info(f"📋 Colonnes démographiques disponibles: {list(demo_df.columns)}")
+            logger.info("👥 Traitement des données démographiques...")
             
-            # Calculer des statistiques démographiques par pays avec les colonnes réelles
+            # Calculer des statistiques démographiques par pays
             agg_dict = {}
             
-            # Ajouter les colonnes qui existent
             if 'cum_death_both' in demo_df.columns:
                 agg_dict['cum_death_both'] = ['mean', 'std']
             elif 'cum_death_male' in demo_df.columns and 'cum_death_female' in demo_df.columns:
-                # Créer cum_death_both s'il n'existe pas
                 demo_df['cum_death_both'] = demo_df['cum_death_male'].fillna(0) + demo_df['cum_death_female'].fillna(0)
                 agg_dict['cum_death_both'] = ['mean', 'std']
             
-            # Pour l'âge, utiliser age_group si age_numeric n'existe pas
             if 'age_numeric' in demo_df.columns:
                 agg_dict['age_numeric'] = 'mean'
             elif 'age_group' in demo_df.columns:
-                # Convertir age_group en age_numeric
                 age_mapping = {
                     '0-4': 2, '5-14': 9, '15-24': 19, '25-34': 29, '35-44': 39,
                     '45-54': 49, '55-64': 59, '65-74': 69, '75-84': 79, '85+': 90
@@ -282,7 +369,7 @@ class HybridCovidTrainer:
                     else:
                         new_columns.append(str(col))
                 
-                # Ajuster le nombre de colonnes
+                # Ajuster les colonnes
                 while len(new_columns) < len(demo_stats.columns):
                     new_columns.append(f'demo_feature_{len(new_columns)}')
                 while len(new_columns) > len(demo_stats.columns):
@@ -293,11 +380,15 @@ class HybridCovidTrainer:
                 
                 # Merger avec les données principales
                 merged_df = merged_df.merge(demo_stats, on='country_name', how='left')
+                
+                # Remplir les valeurs manquantes
                 merged_df['avg_demo_deaths'] = merged_df.get('avg_demo_deaths', 0).fillna(0)
                 merged_df['std_demo_deaths'] = merged_df.get('std_demo_deaths', 0).fillna(0)
                 merged_df['avg_age'] = merged_df.get('avg_age', 50).fillna(50)
+                
+                logger.info(f"👥 Données démographiques fusionnées pour {len(demo_stats)} pays")
             else:
-                logger.warning("⚠️  Aucune colonne démographique utilisable trouvée")
+                logger.warning("⚠️ Colonnes démographiques non utilisables")
                 merged_df['avg_demo_deaths'] = 0
                 merged_df['std_demo_deaths'] = 0
                 merged_df['avg_age'] = 50
@@ -306,10 +397,15 @@ class HybridCovidTrainer:
             merged_df['std_demo_deaths'] = 0
             merged_df['avg_age'] = 50
         
-        # Calculer des features temporelles
+        # === FEATURES TEMPORELLES ===
         merged_df['day_of_year'] = merged_df['date'].dt.dayofyear
         merged_df['month'] = merged_df['date'].dt.month
         merged_df['quarter'] = merged_df['date'].dt.quarter
+        merged_df['week_of_year'] = merged_df['date'].dt.isocalendar().week
+        
+        # === FEATURES DÉRIVÉES COVID ===
+        merged_df['mortality_rate'] = (merged_df['deaths'] / merged_df['confirmed'].clip(lower=1) * 100).fillna(0)
+        merged_df['recovery_rate'] = (merged_df['recovered'] / merged_df['confirmed'].clip(lower=1) * 100).fillna(0)
         
         logger.info(f"🔗 Fusion terminée: {len(merged_df)} enregistrements")
         logger.info(f"📊 Colonnes finales: {list(merged_df.columns)}")
@@ -317,10 +413,9 @@ class HybridCovidTrainer:
         return merged_df
     
     def prepare_training_data(self, merged_df):
-        """Prépare les données pour l'entraînement"""
+        """Prépare les données pour l'entraînement (VERSION AMÉLIORÉE)"""
         logger.info("🔧 Préparation des données d'entraînement...")
         
-        # Trier par pays et date
         merged_df = merged_df.sort_values(['country_name', 'date'])
         
         countries = merged_df['country_name'].unique()
@@ -328,34 +423,47 @@ class HybridCovidTrainer:
         enriched_features = []
         targets = []
         
+        # Features enrichies sélectionnées (12 features au total)
+        enriched_feature_names = [
+            'cumulative_vaccinations', 'daily_vaccinations', 'vaccination_rate',
+            'avg_demo_deaths', 'std_demo_deaths', 'avg_age',
+            'day_of_year', 'month', 'quarter', 'week_of_year',
+            'mortality_rate', 'recovery_rate'
+        ]
+        
+        # Vérifier que toutes les features existent
+        missing_features = [f for f in enriched_feature_names if f not in merged_df.columns]
+        if missing_features:
+            logger.warning(f"⚠️ Features manquantes: {missing_features}")
+            # Ajouter les features manquantes avec des valeurs par défaut
+            for feature in missing_features:
+                merged_df[feature] = 0
+        
+        logger.info(f"🎯 Features enrichies utilisées: {enriched_feature_names}")
+        
         for country in countries:
             country_data = merged_df[merged_df['country_name'] == country].copy()
             
             if len(country_data) < self.sequence_length + 1:
-                logger.warning(f"⚠️  Pas assez de données pour {country} ({len(country_data)} points)")
+                logger.warning(f"⚠️ Pas assez de données pour {country} ({len(country_data)} points)")
                 continue
             
-            # Features temporelles pour LSTM (données COVID principales)
+            # Features temporelles pour LSTM
             time_features = country_data[['confirmed', 'deaths', 'recovered', 'active']].values.astype(np.float32)
             
-            # Features enrichies (vaccination + démographie + temporel)
-            enriched_feat = country_data[[
-                'cumulative_vaccinations', 'daily_vaccinations',
-                'avg_demo_deaths', 'std_demo_deaths', 'avg_age',
-                'day_of_year', 'month', 'quarter',
-                'confirmed', 'deaths'  # Ajouter aussi les moyennes COVID pour contexte
-            ]].values.astype(np.float32)
-            
-            # Moyenner les features enrichies par pays (elles varient peu dans le temps)
-            country_enriched_mean = enriched_feat.mean(axis=0)
+            # Features enrichies
+            enriched_feat = country_data[enriched_feature_names].values.astype(np.float32)
             
             # Créer les séquences
             for i in range(len(time_features) - self.sequence_length):
                 seq = time_features[i:i + self.sequence_length]
                 target = time_features[i + self.sequence_length]
                 
+                # Utiliser les features enrichies de la date cible
+                enriched_target = enriched_feat[i + self.sequence_length]
+                
                 sequences.append(seq)
-                enriched_features.append(country_enriched_mean)
+                enriched_features.append(enriched_target)
                 targets.append(target)
         
         sequences = np.array(sequences, dtype=np.float32)
@@ -400,19 +508,23 @@ class HybridCovidTrainer:
         """Entraîne le modèle"""
         logger.info("🏋️ Début de l'entraînement hybride...")
         
-        # Déterminer les tailles
         sample_seq, sample_enr, _ = next(iter(train_loader))
         input_size = sample_seq.shape[-1]
         enriched_size = sample_enr.shape[-1]
+        
+        logger.info(f"🔧 Architecture du modèle: input_size={input_size}, enriched_features={enriched_size}")
         
         model = CovidLSTM(
             input_size=input_size,
             enriched_features=enriched_size
         ).to(self.device)
         
+        total_params = sum(p.numel() for p in model.parameters())
+        logger.info(f"🧠 Modèle créé avec {total_params:,} paramètres")
+        
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=15, factor=0.5)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20, factor=0.5, verbose=True)
         
         train_losses = []
         val_losses = []
@@ -468,10 +580,10 @@ class HybridCovidTrainer:
             else:
                 patience_counter += 1
             
-            if epoch % 10 == 0 or patience_counter >= 25:
-                logger.info(f"Epoch {epoch:3d}/{EPOCHS} | Train Loss: {train_loss:.6f} | Val Loss: {val_loss:.6f}")
+            if epoch % 10 == 0 or patience_counter >= 30:
+                logger.info(f"Epoch {epoch:3d}/{EPOCHS} | Train Loss: {train_loss:.6f} | Val Loss: {val_loss:.6f} | LR: {optimizer.param_groups[0]['lr']:.2e}")
             
-            if patience_counter >= 25:
+            if patience_counter >= 30:
                 logger.info("🛑 Early stopping")
                 break
         
@@ -515,10 +627,10 @@ class HybridCovidTrainer:
             r2 = r2_score(targets_denorm[:, i], predictions_denorm[:, i])
             
             metrics[feature] = {
-                'MAE': mae,
-                'MSE': mse,
-                'RMSE': rmse,
-                'R2': r2
+                'MAE': float(mae),
+                'MSE': float(mse),
+                'RMSE': float(rmse),
+                'R2': float(r2)
             }
             
             logger.info(f"{feature:>10} | MAE: {mae:8.2f} | RMSE: {rmse:8.2f} | R²: {r2:6.4f}")
@@ -535,23 +647,24 @@ class HybridCovidTrainer:
         
         import json
         with open(os.path.join(MODEL_DIR, 'metrics.json'), 'w') as f:
-            metrics_json = {}
-            for feature, metric_dict in metrics.items():
-                metrics_json[feature] = {k: float(v) for k, v in metric_dict.items()}
-            json.dump(metrics_json, f, indent=2)
+            json.dump(metrics, f, indent=2)
         
         config = {
             'sequence_length': self.sequence_length,
             'model_architecture': 'LSTM Hybride COVID - MongoDB + CSV',
             'input_features': ['confirmed', 'deaths', 'recovered', 'active'],
             'enriched_features': [
-                'cumulative_vaccinations', 'daily_vaccinations',
+                'cumulative_vaccinations', 'daily_vaccinations', 'vaccination_rate',
                 'avg_demo_deaths', 'std_demo_deaths', 'avg_age',
-                'day_of_year', 'month', 'quarter', 'confirmed_avg', 'deaths_avg'
+                'day_of_year', 'month', 'quarter', 'week_of_year',
+                'mortality_rate', 'recovery_rate'
             ],
             'training_date': datetime.now().isoformat(),
             'device': str(self.device),
-            'data_sources': ['MongoDB (COVID principal)', 'CSV (enrichissement)']
+            'data_sources': ['MongoDB (COVID principal)', 'CSV (vaccination + démographie)'],
+            'epochs_trained': EPOCHS,
+            'batch_size': BATCH_SIZE,
+            'learning_rate': LEARNING_RATE
         }
         
         with open(os.path.join(MODEL_DIR, 'config.json'), 'w') as f:
@@ -620,5 +733,6 @@ if __name__ == "__main__":
         print("   - models/metrics.json")
         print("   - models/config.json")
         print("\n🤖 Modèle hybride prêt pour des prédictions cohérentes!")
+        print("💉 Le modèle utilise maintenant correctement les données de vaccination!")
     else:
         print("❌ Échec de l'entraînement hybride")

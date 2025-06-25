@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 import seaborn as sns
+from pymongo import MongoClient
 import joblib
 import os
 import glob
@@ -16,27 +17,31 @@ import re
 from datetime import datetime, timedelta
 import logging
 from typing import Tuple, List
+from dotenv import load_dotenv
 import warnings
 warnings.filterwarnings('ignore')
 
 # Configuration logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+load_dotenv()
 
 # Configuration
+MONGO_URI = os.getenv('MONGO_URI')
+DB_NAME = os.getenv('DB_NAME')
 MODEL_DIR = 'models'
 SEQUENCE_LENGTH = 30
 BATCH_SIZE = 32
 EPOCHS = 100
 LEARNING_RATE = 0.001
-DATA_PATH = '../data/dataset_clean'
+CSV_DATA_PATH = '../data/dataset_clean'
 
 # Créer le dossier de modèles
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 class CovidLSTM(nn.Module):
-    """Modèle LSTM hybride pour prédiction COVID"""
-    def __init__(self, input_size=4, hidden_size=128, num_layers=2, demographic_features=6, dropout=0.2):
+    """Modèle LSTM hybride pour prédiction COVID avec features enrichies"""
+    def __init__(self, input_size=4, hidden_size=128, num_layers=2, enriched_features=10, dropout=0.2):
         super(CovidLSTM, self).__init__()
         
         self.lstm = nn.LSTM(
@@ -47,14 +52,16 @@ class CovidLSTM(nn.Module):
             batch_first=True
         )
         
-        self.demographic_fc = nn.Sequential(
-            nn.Linear(demographic_features, 64),
+        # Couches pour les features enrichies (démographie + vaccination + etc.)
+        self.enriched_fc = nn.Sequential(
+            nn.Linear(enriched_features, 64),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(64, 32),
             nn.ReLU()
         )
         
+        # Couche de fusion
         self.fusion_fc = nn.Sequential(
             nn.Linear(hidden_size + 32, 256),
             nn.ReLU(),
@@ -68,318 +75,279 @@ class CovidLSTM(nn.Module):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
     
-    def forward(self, time_series, demographic_features):
+    def forward(self, time_series, enriched_features):
         batch_size = time_series.size(0)
         
         lstm_out, _ = self.lstm(time_series)
         lstm_features = lstm_out[:, -1, :]
         
-        demo_features = self.demographic_fc(demographic_features)
+        enriched_processed = self.enriched_fc(enriched_features)
         
-        combined_features = torch.cat([lstm_features, demo_features], dim=1)
+        combined_features = torch.cat([lstm_features, enriched_processed], dim=1)
         output = self.fusion_fc(combined_features)
         
         return output
 
 class CovidDataset(Dataset):
-    def __init__(self, sequences, demographics, targets):
+    def __init__(self, sequences, enriched_features, targets):
         self.sequences = torch.FloatTensor(sequences)
-        self.demographics = torch.FloatTensor(demographics)
+        self.enriched_features = torch.FloatTensor(enriched_features)
         self.targets = torch.FloatTensor(targets)
     
     def __len__(self):
         return len(self.sequences)
     
     def __getitem__(self, idx):
-        return self.sequences[idx], self.demographics[idx], self.targets[idx]
+        return self.sequences[idx], self.enriched_features[idx], self.targets[idx]
 
-class CovidCSVTrainer:
+class HybridCovidTrainer:
     def __init__(self):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.sequence_length = SEQUENCE_LENGTH
         self.time_scaler = StandardScaler()
-        self.demo_scaler = StandardScaler()
+        self.enriched_scaler = StandardScaler()
         
-        logger.info(f"🚀 Initialisation du trainer CSV sur {self.device}")
+        logger.info(f"🚀 Initialisation du trainer hybride sur {self.device}")
     
-    def extract_date_from_filename(self, filename):
-        """Extrait la date du nom de fichier"""
-        patterns = [
-            r'(\d{4}-\d{2}-\d{2})',           # YYYY-MM-DD
-            r'(\d{4}_\d{2}_\d{2})',           # YYYY_MM_DD
-            r'(\d{2}-\d{2}-\d{4})',           # MM-DD-YYYY
-            r'(\d{2}_\d{2}_\d{4})',           # MM_DD_YYYY
+    def connect_mongodb(self):
+        """Connexion à MongoDB"""
+        try:
+            self.client = MongoClient(MONGO_URI)
+            self.db = self.client[DB_NAME]
+            self.db.command('ping')
+            logger.info("✅ Connexion MongoDB réussie")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Erreur connexion MongoDB: {e}")
+            return False
+    
+    def load_covid_data_from_mongodb(self):
+        """Charge les données COVID principales depuis MongoDB"""
+        logger.info("📊 Chargement des données COVID depuis MongoDB...")
+        
+        # Récupérer toutes les séries temporelles avec pays
+        pipeline = [
+            {
+                "$lookup": {
+                    "from": "countries",
+                    "localField": "country_id",
+                    "foreignField": "_id",
+                    "as": "country"
+                }
+            },
+            {"$unwind": "$country"},
+            {"$sort": {"country.country_name": 1, "date": 1}},
+            {
+                "$project": {
+                    "country_name": "$country.country_name",
+                    "date": 1,
+                    "confirmed": 1,
+                    "deaths": 1,
+                    "recovered": 1,
+                    "active": 1
+                }
+            }
         ]
         
-        for pattern in patterns:
-            match = re.search(pattern, filename)
-            if match:
-                date_str = match.group(1)
+        covid_data = list(self.db.daily_stats.aggregate(pipeline))
+        covid_df = pd.DataFrame(covid_data)
+        
+        if len(covid_df) == 0:
+            raise ValueError("Aucune donnée COVID trouvée dans MongoDB!")
+        
+        covid_df['date'] = pd.to_datetime(covid_df['date'])
+        
+        logger.info(f"📈 {len(covid_df)} points de données COVID chargés")
+        logger.info(f"🏳️ {covid_df['country_name'].nunique()} pays")
+        logger.info(f"📅 Du {covid_df['date'].min().strftime('%Y-%m-%d')} au {covid_df['date'].max().strftime('%Y-%m-%d')}")
+        
+        return covid_df
+    
+    def load_enrichment_data_from_csv(self):
+        """Charge les données d'enrichissement depuis les CSV"""
+        logger.info("📂 Chargement des données d'enrichissement depuis CSV...")
+        
+        enrichment_data = {}
+        
+        # 1. Données de vaccination
+        vaccination_file = os.path.join(CSV_DATA_PATH, 'cumulative-covid-vaccinations_clean.csv')
+        if os.path.exists(vaccination_file):
+            vacc_df = pd.read_csv(vaccination_file)
+            vacc_df['date'] = pd.to_datetime(vacc_df['date'])
+            enrichment_data['vaccination'] = vacc_df
+            logger.info(f"💉 Vaccination: {len(vacc_df)} enregistrements")
+        
+        # 2. Données démographiques (si disponibles)
+        demo_files = glob.glob(os.path.join(CSV_DATA_PATH, "*age*clean.csv"))
+        demo_files.extend(glob.glob(os.path.join(CSV_DATA_PATH, "*pooled*clean.csv")))
+        
+        if demo_files:
+            demo_dfs = []
+            for file in demo_files[:3]:  # Limiter à 3 fichiers pour éviter la surcharge
                 try:
-                    if date_str.count('-') == 2 or date_str.count('_') == 2:
-                        parts = re.split(r'[-_]', date_str)
-                        if len(parts[0]) == 4:  # YYYY-MM-DD
-                            return datetime(int(parts[0]), int(parts[1]), int(parts[2]))
-                        else:  # MM-DD-YYYY
-                            return datetime(int(parts[2]), int(parts[0]), int(parts[1]))
+                    df = pd.read_csv(file)
+                    if 'country' in df.columns and 'age_group' in df.columns:
+                        demo_dfs.append(df)
                 except:
                     continue
-        
-        logger.warning(f"⚠️  Impossible d'extraire la date de: {filename}")
-        return None
-    
-    def detect_separator(self, filepath):
-        """Détecte le séparateur CSV"""
-        with open(filepath, 'r', encoding='utf-8') as f:
-            first_line = f.readline()
-        
-        separators = [',', ';', '\t', '|']
-        max_cols = 0
-        best_sep = ','
-        
-        for sep in separators:
-            cols = len(first_line.split(sep))
-            if cols > max_cols:
-                max_cols = cols
-                best_sep = sep
-        
-        return best_sep
-    
-    def load_csv_files(self):
-        """Charge tous les fichiers CSV avec extraction des dates"""
-        logger.info(f"📂 Lecture des fichiers CSV depuis {DATA_PATH}")
-        
-        if not os.path.exists(DATA_PATH):
-            raise FileNotFoundError(f"Le dossier {DATA_PATH} n'existe pas!")
-        
-        # Trouver tous les fichiers CSV nettoyés
-        csv_files = glob.glob(os.path.join(DATA_PATH, "*_clean.csv"))
-        logger.info(f"📁 {len(csv_files)} fichiers CSV trouvés")
-        
-        all_data = []
-        
-        for csv_file in csv_files:
-            filename = os.path.basename(csv_file)
-            logger.info(f"📖 Lecture de {filename}...")
             
-            # Extraire la date du nom de fichier
-            file_date = self.extract_date_from_filename(filename)
+            if demo_dfs:
+                demo_df = pd.concat(demo_dfs, ignore_index=True)
+                enrichment_data['demographics'] = demo_df
+                logger.info(f"👥 Démographie: {len(demo_df)} enregistrements")
+        
+        logger.info(f"✅ {len(enrichment_data)} types de données d'enrichissement chargés")
+        return enrichment_data
+    
+    def merge_covid_with_enrichment(self, covid_df, enrichment_data):
+        """Fusionne les données COVID avec les enrichissements"""
+        logger.info("🔗 Fusion des données COVID avec enrichissements...")
+        
+        # Créer une copie pour travailler
+        merged_df = covid_df.copy()
+        
+        # Ajouter les données de vaccination
+        if 'vaccination' in enrichment_data:
+            vacc_df = enrichment_data['vaccination']
             
-            # Détecter le séparateur
-            separator = self.detect_separator(csv_file)
+            # Grouper par pays et date pour éviter les doublons
+            vacc_grouped = vacc_df.groupby(['country', 'date']).agg({
+                'cumulative_vaccinations': 'max',
+                'daily_vaccinations': 'max'
+            }).reset_index()
             
-            try:
-                # Lire le fichier CSV
-                df = pd.read_csv(csv_file, sep=separator)
-                
-                if len(df) == 0:
-                    logger.warning(f"⚠️  {filename} est vide")
-                    continue
-                
-                # Ajouter les métadonnées
-                df['source_file'] = filename
-                df['file_date'] = file_date
-                
-                # Identifier le type de fichier et traiter en conséquence
-                if 'full_grouped' in filename:
-                    # Données principales de séries temporelles
-                    df = self.process_full_grouped_data(df)
-                elif 'country_wise_latest' in filename:
-                    # Données par pays (dernière date)
-                    df = self.process_country_wise_data(df)
-                elif 'covid_19_clean_complete' in filename:
-                    # Données complètes avec provinces
-                    df = self.process_complete_data(df)
-                elif any(pattern in filename for pattern in ['cum_deaths_by_age', 'covid_pooled']):
-                    # Données démographiques
-                    df = self.process_demographic_data(df, file_date)
-                else:
-                    logger.info(f"   ℹ️  Type de fichier non reconnu, traitement générique")
-                    continue
-                
-                if len(df) > 0:
-                    all_data.append(df)
-                    logger.info(f"   ✅ {len(df)} enregistrements ajoutés")
-                
-            except Exception as e:
-                logger.error(f"❌ Erreur lecture {filename}: {e}")
-                continue
-        
-        if not all_data:
-            raise ValueError("Aucune donnée n'a pu être chargée!")
-        
-        # Combiner toutes les données
-        combined_df = pd.concat(all_data, ignore_index=True)
-        logger.info(f"📊 Total: {len(combined_df)} enregistrements combinés")
-        
-        return combined_df
-    
-    def process_full_grouped_data(self, df):
-        """Traite les données full_grouped (séries temporelles principales)"""
-        required_cols = ['Country/Region', 'Date', 'Confirmed', 'Deaths', 'Recovered', 'Active']
-        
-        if not all(col in df.columns for col in required_cols):
-            logger.warning("   ⚠️  Colonnes manquantes dans full_grouped")
-            return pd.DataFrame()
-        
-        # Nettoyer et standardiser
-        df = df[required_cols + ['source_file', 'file_date']].copy()
-        df.columns = ['country', 'date', 'confirmed', 'deaths', 'recovered', 'active', 'source_file', 'file_date']
-        
-        # Convertir la date
-        df['date'] = pd.to_datetime(df['date'], errors='coerce')
-        df = df.dropna(subset=['date'])
-        
-        # Convertir les valeurs numériques
-        for col in ['confirmed', 'deaths', 'recovered', 'active']:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-        
-        df['data_type'] = 'time_series'
-        return df
-    
-    def process_country_wise_data(self, df):
-        """Traite les données country_wise_latest"""
-        if 'Country/Region' not in df.columns:
-            return pd.DataFrame()
-        
-        # Utiliser la date du fichier comme date de référence
-        df['date'] = df['file_date']
-        df['country'] = df['Country/Region']
-        
-        # Essayer de récupérer les valeurs numériques disponibles
-        numeric_cols = ['Confirmed', 'Deaths', 'Recovered', 'Active']
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col.lower()] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-            else:
-                df[col.lower()] = 0
-        
-        result_cols = ['country', 'date', 'confirmed', 'deaths', 'recovered', 'active', 'source_file', 'file_date']
-        df = df[result_cols].copy()
-        df['data_type'] = 'latest'
-        return df
-    
-    def process_complete_data(self, df):
-        """Traite les données covid_19_clean_complete"""
-        required_cols = ['Country/Region', 'Date', 'Confirmed', 'Deaths', 'Recovered']
-        
-        if not all(col in df.columns for col in required_cols):
-            return pd.DataFrame()
-        
-        # Grouper par pays et date pour éviter les doublons de provinces
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        df = df.dropna(subset=['Date'])
-        
-        grouped = df.groupby(['Country/Region', 'Date']).agg({
-            'Confirmed': 'sum',
-            'Deaths': 'sum', 
-            'Recovered': 'sum'
-        }).reset_index()
-        
-        grouped['Active'] = grouped['Confirmed'] - grouped['Deaths'] - grouped['Recovered']
-        grouped['source_file'] = df['source_file'].iloc[0]
-        grouped['file_date'] = df['file_date'].iloc[0]
-        
-        # Standardiser les noms de colonnes
-        grouped.columns = ['country', 'date', 'confirmed', 'deaths', 'recovered', 'active', 'source_file', 'file_date']
-        
-        # Convertir les valeurs numériques
-        for col in ['confirmed', 'deaths', 'recovered', 'active']:
-            grouped[col] = pd.to_numeric(grouped[col], errors='coerce').fillna(0)
-        
-        grouped['data_type'] = 'complete'
-        return grouped
-    
-    def process_demographic_data(self, df, file_date):
-        """Traite les données démographiques par âge"""
-        if 'country' not in df.columns or 'age_group' not in df.columns:
-            return pd.DataFrame()
-        
-        # Utiliser la date du fichier ou du champ death_reference_date
-        if 'death_reference_date' in df.columns:
-            df['date'] = pd.to_datetime(df['death_reference_date'], errors='coerce')
+            # Merger avec les données COVID
+            merged_df = merged_df.merge(
+                vacc_grouped, 
+                left_on=['country_name', 'date'], 
+                right_on=['country', 'date'], 
+                how='left'
+            )
+            
+            # Remplir les valeurs manquantes de vaccination
+            merged_df['cumulative_vaccinations'] = merged_df['cumulative_vaccinations'].fillna(0)
+            merged_df['daily_vaccinations'] = merged_df['daily_vaccinations'].fillna(0)
+            
+            # Supprimer la colonne country dupliquée
+            if 'country' in merged_df.columns:
+                merged_df = merged_df.drop('country', axis=1)
         else:
-            df['date'] = file_date
+            merged_df['cumulative_vaccinations'] = 0
+            merged_df['daily_vaccinations'] = 0
         
-        # Nettoyer les données démographiques
-        df = df.dropna(subset=['country', 'age_group'])
+        # Ajouter des features démographiques simplifiées
+        if 'demographics' in enrichment_data:
+            demo_df = enrichment_data['demographics']
+            
+            # Vérifier quelles colonnes sont disponibles
+            logger.info(f"📋 Colonnes démographiques disponibles: {list(demo_df.columns)}")
+            
+            # Calculer des statistiques démographiques par pays avec les colonnes réelles
+            agg_dict = {}
+            
+            # Ajouter les colonnes qui existent
+            if 'cum_death_both' in demo_df.columns:
+                agg_dict['cum_death_both'] = ['mean', 'std']
+            elif 'cum_death_male' in demo_df.columns and 'cum_death_female' in demo_df.columns:
+                # Créer cum_death_both s'il n'existe pas
+                demo_df['cum_death_both'] = demo_df['cum_death_male'].fillna(0) + demo_df['cum_death_female'].fillna(0)
+                agg_dict['cum_death_both'] = ['mean', 'std']
+            
+            # Pour l'âge, utiliser age_group si age_numeric n'existe pas
+            if 'age_numeric' in demo_df.columns:
+                agg_dict['age_numeric'] = 'mean'
+            elif 'age_group' in demo_df.columns:
+                # Convertir age_group en age_numeric
+                age_mapping = {
+                    '0-4': 2, '5-14': 9, '15-24': 19, '25-34': 29, '35-44': 39,
+                    '45-54': 49, '55-64': 59, '65-74': 69, '75-84': 79, '85+': 90
+                }
+                demo_df['age_numeric'] = demo_df['age_group'].map(age_mapping).fillna(50)
+                agg_dict['age_numeric'] = 'mean'
+            
+            if agg_dict:
+                demo_stats = demo_df.groupby('country').agg(agg_dict).reset_index()
+                
+                # Aplatir les colonnes multi-niveaux
+                new_columns = ['country_name']
+                for col in demo_stats.columns[1:]:
+                    if isinstance(col, tuple):
+                        if col[1] == 'mean':
+                            if 'death' in col[0]:
+                                new_columns.append('avg_demo_deaths')
+                            elif 'age' in col[0]:
+                                new_columns.append('avg_age')
+                        elif col[1] == 'std':
+                            new_columns.append('std_demo_deaths')
+                    else:
+                        new_columns.append(str(col))
+                
+                # Ajuster le nombre de colonnes
+                while len(new_columns) < len(demo_stats.columns):
+                    new_columns.append(f'demo_feature_{len(new_columns)}')
+                while len(new_columns) > len(demo_stats.columns):
+                    new_columns.pop()
+                
+                demo_stats.columns = new_columns
+                demo_stats = demo_stats.fillna(0)
+                
+                # Merger avec les données principales
+                merged_df = merged_df.merge(demo_stats, on='country_name', how='left')
+                merged_df['avg_demo_deaths'] = merged_df.get('avg_demo_deaths', 0).fillna(0)
+                merged_df['std_demo_deaths'] = merged_df.get('std_demo_deaths', 0).fillna(0)
+                merged_df['avg_age'] = merged_df.get('avg_age', 50).fillna(50)
+            else:
+                logger.warning("⚠️  Aucune colonne démographique utilisable trouvée")
+                merged_df['avg_demo_deaths'] = 0
+                merged_df['std_demo_deaths'] = 0
+                merged_df['avg_age'] = 50
+        else:
+            merged_df['avg_demo_deaths'] = 0
+            merged_df['std_demo_deaths'] = 0
+            merged_df['avg_age'] = 50
         
-        # Filtrer les groupes d'âge valides
-        valid_age_groups = ['0-4', '5-14', '15-24', '25-34', '35-44', '45-54', '55-64', '65-74', '75-84', '85+']
-        df = df[df['age_group'].isin(valid_age_groups)]
+        # Calculer des features temporelles
+        merged_df['day_of_year'] = merged_df['date'].dt.dayofyear
+        merged_df['month'] = merged_df['date'].dt.month
+        merged_df['quarter'] = merged_df['date'].dt.quarter
         
-        if len(df) == 0:
-            return pd.DataFrame()
+        logger.info(f"🔗 Fusion terminée: {len(merged_df)} enregistrements")
+        logger.info(f"📊 Colonnes finales: {list(merged_df.columns)}")
         
-        # Agréger par pays et date
-        numeric_cols = ['cum_death_male', 'cum_death_female', 'cum_death_both']
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-        
-        # Grouper par pays et date
-        agg_dict = {}
-        for col in numeric_cols:
-            if col in df.columns:
-                agg_dict[col] = 'sum'
-        
-        if not agg_dict:
-            return pd.DataFrame()
-        
-        grouped = df.groupby(['country', 'date']).agg(agg_dict).reset_index()
-        
-        # Calculer les métriques COVID standard
-        grouped['deaths'] = grouped.get('cum_death_both', 0)
-        grouped['confirmed'] = grouped['deaths'] * 20  # Estimation approximative
-        grouped['recovered'] = grouped['confirmed'] * 0.95  # Estimation approximative  
-        grouped['active'] = grouped['confirmed'] - grouped['deaths'] - grouped['recovered']
-        
-        grouped['source_file'] = df['source_file'].iloc[0]
-        grouped['file_date'] = df['file_date'].iloc[0]
-        grouped['data_type'] = 'demographic'
-        
-        # Garder seulement les colonnes standardisées
-        result_cols = ['country', 'date', 'confirmed', 'deaths', 'recovered', 'active', 'source_file', 'file_date', 'data_type']
-        return grouped[result_cols]
+        return merged_df
     
-    def prepare_training_data(self, df):
+    def prepare_training_data(self, merged_df):
         """Prépare les données pour l'entraînement"""
         logger.info("🔧 Préparation des données d'entraînement...")
         
-        # Filtrer et nettoyer
-        df = df.dropna(subset=['country', 'date'])
-        df['date'] = pd.to_datetime(df['date'])
-        
         # Trier par pays et date
-        df = df.sort_values(['country', 'date'])
+        merged_df = merged_df.sort_values(['country_name', 'date'])
         
-        countries = df['country'].unique()
+        countries = merged_df['country_name'].unique()
         sequences = []
-        demographics = []
+        enriched_features = []
         targets = []
         
         for country in countries:
-            country_data = df[df['country'] == country].copy()
+            country_data = merged_df[merged_df['country_name'] == country].copy()
             
             if len(country_data) < self.sequence_length + 1:
                 logger.warning(f"⚠️  Pas assez de données pour {country} ({len(country_data)} points)")
                 continue
             
-            # Trier par date
-            country_data = country_data.sort_values('date')
-            
-            # Features temporelles pour LSTM
+            # Features temporelles pour LSTM (données COVID principales)
             time_features = country_data[['confirmed', 'deaths', 'recovered', 'active']].values.astype(np.float32)
             
-            # Features démographiques (moyennes par pays)
-            demo_features = np.array([
-                country_data['confirmed'].mean(),
-                country_data['deaths'].mean(),
-                country_data['recovered'].mean(), 
-                country_data['active'].mean(),
-                len(country_data),  # Nombre de points de données
-                country_data['deaths'].std() if len(country_data) > 1 else 0  # Variabilité
-            ], dtype=np.float32)
+            # Features enrichies (vaccination + démographie + temporel)
+            enriched_feat = country_data[[
+                'cumulative_vaccinations', 'daily_vaccinations',
+                'avg_demo_deaths', 'std_demo_deaths', 'avg_age',
+                'day_of_year', 'month', 'quarter',
+                'confirmed', 'deaths'  # Ajouter aussi les moyennes COVID pour contexte
+            ]].values.astype(np.float32)
+            
+            # Moyenner les features enrichies par pays (elles varient peu dans le temps)
+            country_enriched_mean = enriched_feat.mean(axis=0)
             
             # Créer les séquences
             for i in range(len(time_features) - self.sequence_length):
@@ -387,16 +355,16 @@ class CovidCSVTrainer:
                 target = time_features[i + self.sequence_length]
                 
                 sequences.append(seq)
-                demographics.append(demo_features)
+                enriched_features.append(country_enriched_mean)
                 targets.append(target)
         
         sequences = np.array(sequences, dtype=np.float32)
-        demographics = np.array(demographics, dtype=np.float32)
+        enriched_features = np.array(enriched_features, dtype=np.float32)
         targets = np.array(targets, dtype=np.float32)
         
         logger.info(f"📊 {len(sequences)} séquences créées")
         logger.info(f"📏 Forme séquences: {sequences.shape}")
-        logger.info(f"📏 Forme démographiques: {demographics.shape}")
+        logger.info(f"📏 Forme enriched: {enriched_features.shape}")
         logger.info(f"📏 Forme targets: {targets.shape}")
         
         # Normalisation
@@ -407,20 +375,19 @@ class CovidCSVTrainer:
         
         targets_normalized = self.time_scaler.transform(targets)
         
-        self.demo_scaler.fit(demographics)
-        demographics_normalized = self.demo_scaler.transform(demographics)
+        self.enriched_scaler.fit(enriched_features)
+        enriched_normalized = self.enriched_scaler.transform(enriched_features)
         
-        return sequences, demographics_normalized, targets_normalized
+        return sequences, enriched_normalized, targets_normalized
     
-    def create_dataloaders(self, sequences, demographics, targets):
+    def create_dataloaders(self, sequences, enriched_features, targets):
         """Crée les DataLoaders"""
-        # Split train/validation
-        X_seq_train, X_seq_val, X_demo_train, X_demo_val, y_train, y_val = train_test_split(
-            sequences, demographics, targets, test_size=0.2, random_state=42
+        X_seq_train, X_seq_val, X_enr_train, X_enr_val, y_train, y_val = train_test_split(
+            sequences, enriched_features, targets, test_size=0.2, random_state=42
         )
         
-        train_dataset = CovidDataset(X_seq_train, X_demo_train, y_train)
-        val_dataset = CovidDataset(X_seq_val, X_demo_val, y_val)
+        train_dataset = CovidDataset(X_seq_train, X_enr_train, y_train)
+        val_dataset = CovidDataset(X_seq_val, X_enr_val, y_val)
         
         train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
         val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
@@ -431,12 +398,21 @@ class CovidCSVTrainer:
     
     def train_model(self, train_loader, val_loader):
         """Entraîne le modèle"""
-        logger.info("🏋️ Début de l'entraînement...")
+        logger.info("🏋️ Début de l'entraînement hybride...")
         
-        model = CovidLSTM().to(self.device)
+        # Déterminer les tailles
+        sample_seq, sample_enr, _ = next(iter(train_loader))
+        input_size = sample_seq.shape[-1]
+        enriched_size = sample_enr.shape[-1]
+        
+        model = CovidLSTM(
+            input_size=input_size,
+            enriched_features=enriched_size
+        ).to(self.device)
+        
         criterion = nn.MSELoss()
-        optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10, factor=0.5)
+        optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=15, factor=0.5)
         
         train_losses = []
         val_losses = []
@@ -448,17 +424,17 @@ class CovidCSVTrainer:
             model.train()
             train_loss = 0.0
             
-            for sequences, demographics, targets in train_loader:
+            for sequences, enriched, targets in train_loader:
                 sequences = sequences.to(self.device)
-                demographics = demographics.to(self.device)
+                enriched = enriched.to(self.device)
                 targets = targets.to(self.device)
                 
                 optimizer.zero_grad()
-                outputs = model(sequences, demographics)
+                outputs = model(sequences, enriched)
                 loss = criterion(outputs, targets)
                 loss.backward()
                 
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
                 optimizer.step()
                 train_loss += loss.item()
             
@@ -467,12 +443,12 @@ class CovidCSVTrainer:
             val_loss = 0.0
             
             with torch.no_grad():
-                for sequences, demographics, targets in val_loader:
+                for sequences, enriched, targets in val_loader:
                     sequences = sequences.to(self.device)
-                    demographics = demographics.to(self.device)
+                    enriched = enriched.to(self.device)
                     targets = targets.to(self.device)
                     
-                    outputs = model(sequences, demographics)
+                    outputs = model(sequences, enriched)
                     loss = criterion(outputs, targets)
                     val_loss += loss.item()
             
@@ -492,10 +468,10 @@ class CovidCSVTrainer:
             else:
                 patience_counter += 1
             
-            if epoch % 10 == 0 or patience_counter >= 20:
+            if epoch % 10 == 0 or patience_counter >= 25:
                 logger.info(f"Epoch {epoch:3d}/{EPOCHS} | Train Loss: {train_loss:.6f} | Val Loss: {val_loss:.6f}")
             
-            if patience_counter >= 20:
+            if patience_counter >= 25:
                 logger.info("🛑 Early stopping")
                 break
         
@@ -505,18 +481,18 @@ class CovidCSVTrainer:
     
     def evaluate_model(self, model, val_loader):
         """Évalue le modèle"""
-        logger.info("📊 Évaluation du modèle...")
+        logger.info("📊 Évaluation du modèle hybride...")
         
         model.eval()
         all_predictions = []
         all_targets = []
         
         with torch.no_grad():
-            for sequences, demographics, targets in val_loader:
+            for sequences, enriched, targets in val_loader:
                 sequences = sequences.to(self.device)
-                demographics = demographics.to(self.device)
+                enriched = enriched.to(self.device)
                 
-                outputs = model(sequences, demographics)
+                outputs = model(sequences, enriched)
                 
                 all_predictions.append(outputs.cpu().numpy())
                 all_targets.append(targets.cpu().numpy())
@@ -551,11 +527,11 @@ class CovidCSVTrainer:
     
     def save_model_artifacts(self, model, metrics):
         """Sauvegarde le modèle et les artefacts"""
-        logger.info("💾 Sauvegarde des artefacts...")
+        logger.info("💾 Sauvegarde des artefacts hybrides...")
         
         torch.save(model.state_dict(), os.path.join(MODEL_DIR, 'covid_lstm_model.pth'))
         joblib.dump(self.time_scaler, os.path.join(MODEL_DIR, 'time_scaler.pkl'))
-        joblib.dump(self.demo_scaler, os.path.join(MODEL_DIR, 'demo_scaler.pkl'))
+        joblib.dump(self.enriched_scaler, os.path.join(MODEL_DIR, 'enriched_scaler.pkl'))
         
         import json
         with open(os.path.join(MODEL_DIR, 'metrics.json'), 'w') as f:
@@ -566,43 +542,57 @@ class CovidCSVTrainer:
         
         config = {
             'sequence_length': self.sequence_length,
-            'model_architecture': 'LSTM Hybride COVID - Lecture CSV',
+            'model_architecture': 'LSTM Hybride COVID - MongoDB + CSV',
             'input_features': ['confirmed', 'deaths', 'recovered', 'active'],
-            'demographic_features': 6,
+            'enriched_features': [
+                'cumulative_vaccinations', 'daily_vaccinations',
+                'avg_demo_deaths', 'std_demo_deaths', 'avg_age',
+                'day_of_year', 'month', 'quarter', 'confirmed_avg', 'deaths_avg'
+            ],
             'training_date': datetime.now().isoformat(),
             'device': str(self.device),
-            'data_source': 'CSV files direct'
+            'data_sources': ['MongoDB (COVID principal)', 'CSV (enrichissement)']
         }
         
         with open(os.path.join(MODEL_DIR, 'config.json'), 'w') as f:
             json.dump(config, f, indent=2)
         
-        logger.info(f"✅ Modèle sauvegardé dans {MODEL_DIR}/")
+        logger.info(f"✅ Modèle hybride sauvegardé dans {MODEL_DIR}/")
     
     def run_training(self):
-        """Lance l'entraînement complet"""
-        logger.info("🚀 Début de l'entraînement COVID LSTM (lecture CSV)")
+        """Lance l'entraînement complet hybride"""
+        logger.info("🚀 Début de l'entraînement COVID LSTM hybride (MongoDB + CSV)")
+        
+        # Connexion MongoDB
+        if not self.connect_mongodb():
+            return False
         
         try:
-            # Charger les données CSV
-            df = self.load_csv_files()
+            # 1. Charger les données COVID principales depuis MongoDB
+            covid_df = self.load_covid_data_from_mongodb()
             
-            # Préparer les données
-            sequences, demographics, targets = self.prepare_training_data(df)
+            # 2. Charger les données d'enrichissement depuis CSV
+            enrichment_data = self.load_enrichment_data_from_csv()
             
-            # Créer les DataLoaders
-            train_loader, val_loader = self.create_dataloaders(sequences, demographics, targets)
+            # 3. Fusionner les données
+            merged_df = self.merge_covid_with_enrichment(covid_df, enrichment_data)
             
-            # Entraîner
+            # 4. Préparer pour l'entraînement
+            sequences, enriched_features, targets = self.prepare_training_data(merged_df)
+            
+            # 5. Créer les DataLoaders
+            train_loader, val_loader = self.create_dataloaders(sequences, enriched_features, targets)
+            
+            # 6. Entraîner
             model, train_losses, val_losses = self.train_model(train_loader, val_loader)
             
-            # Évaluer
+            # 7. Évaluer
             metrics, predictions, targets_eval = self.evaluate_model(model, val_loader)
             
-            # Sauvegarder
+            # 8. Sauvegarder
             self.save_model_artifacts(model, metrics)
             
-            logger.info("🎉 Entraînement terminé avec succès!")
+            logger.info("🎉 Entraînement hybride terminé avec succès!")
             return True
             
         except Exception as e:
@@ -610,19 +600,25 @@ class CovidCSVTrainer:
             import traceback
             traceback.print_exc()
             return False
+        finally:
+            if hasattr(self, 'client'):
+                self.client.close()
 
 if __name__ == "__main__":
-    trainer = CovidCSVTrainer()
+    trainer = HybridCovidTrainer()
     success = trainer.run_training()
     
     if success:
-        print("\n🎉 Modèle entraîné avec succès à partir des fichiers CSV!")
+        print("\n🎉 Modèle hybride entraîné avec succès!")
+        print("📁 Sources de données:")
+        print("   🗄️  MongoDB: Données COVID principales (confirmed, deaths, recovered, active)")
+        print("   📂 CSV: Données enrichissement (vaccination, démographie)")
         print("📁 Fichiers créés:")
         print("   - models/covid_lstm_model.pth")
         print("   - models/time_scaler.pkl") 
-        print("   - models/demo_scaler.pkl")
+        print("   - models/enriched_scaler.pkl")
         print("   - models/metrics.json")
         print("   - models/config.json")
-        print("\n🤖 Le modèle peut maintenant prédire l'évolution COVID!")
+        print("\n🤖 Modèle hybride prêt pour des prédictions cohérentes!")
     else:
-        print("❌ Échec de l'entraînement")
+        print("❌ Échec de l'entraînement hybride")

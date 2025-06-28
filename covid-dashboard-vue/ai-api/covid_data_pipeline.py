@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from pymongo import MongoClient
 import logging
 from datetime import datetime, timedelta
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -15,45 +14,44 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class IntelligentCovidDataPipeline:
+class CSVCovidDataPipeline:
     """
-    Pipeline révolutionnaire qui fusionne intelligemment :
-    - Données temporelles COVID (MongoDB)
-    - Données vaccination (CSV)
+    🚀 PIPELINE RÉVOLUTIONNAIRE 100% CSV
+    
+    Fusionne intelligemment :
+    - Données temporelles COVID (CSV)
+    - Données vaccination (CSV) 
     - Données démographiques (CSV)
+    - Features temporelles avancées
     """
     
-    def __init__(self, mongo_uri: str, db_name: str, csv_data_path: str):
-        self.mongo_uri = mongo_uri
-        self.db_name = db_name
+    def __init__(self, csv_data_path: str):
         self.csv_data_path = csv_data_path
-        self.client = None
-        self.db = None
         
         # Caches pour optimiser les performances
         self.vaccination_cache = {}
         self.demographics_cache = {}
-        self.country_mapping = {}
+        self.who_regions_cache = {}
         
-        logger.info("🚀 Initialisation du Pipeline Intelligent COVID IA v2.0")
-    
-    def connect_mongodb(self) -> bool:
-        """Connexion optimisée à MongoDB"""
-        try:
-            self.client = MongoClient(self.mongo_uri)
-            self.db = self.client[self.db_name]
-            self.db.command('ping')
-            logger.info("✅ MongoDB connecté avec succès")
-            return True
-        except Exception as e:
-            logger.error(f"❌ Erreur MongoDB: {e}")
-            return False
+        # Mapping des fichiers CSV
+        self.csv_files = {
+            'covid_clean_complete': 'covid_19_clean_complete_clean.csv',
+            'country_wise_latest': 'country_wise_latest_clean.csv', 
+            'day_wise': 'day_wise_clean.csv',
+            'full_grouped': 'full_grouped_clean.csv',
+            'usa_county': 'usa_county_wise_clean.csv',
+            'worldometer': 'worldometer_data_clean.csv',
+            'vaccination': 'cumulative-covid-vaccinations_clean.csv',
+            'demographics': 'consolidated_demographics_data.csv'
+        }
+        
+        logger.info("🚀 Pipeline CSV Révolutionnaire initialisé")
     
     def load_vaccination_data(self) -> pd.DataFrame:
         """Charge et préprocess les données de vaccination"""
         logger.info("💉 Chargement des données de vaccination...")
         
-        vax_file = os.path.join(self.csv_data_path, 'cumulative-covid-vaccinations_clean.csv')
+        vax_file = os.path.join(self.csv_data_path, self.csv_files['vaccination'])
         
         if not os.path.exists(vax_file):
             logger.error(f"❌ Fichier vaccination introuvable: {vax_file}")
@@ -87,7 +85,7 @@ class IntelligentCovidDataPipeline:
         )
         
         # Pourcentage de population vaccinée (estimé)
-        vax_df['vaccination_coverage_est'] = vax_df['cumulative_vaccinations'] / 100000  # À ajuster avec démographie
+        vax_df['vaccination_coverage_est'] = vax_df['cumulative_vaccinations'] / 100000
         
         logger.info(f"💉 {len(vax_df)} enregistrements vaccination traités")
         logger.info(f"🏳️ {vax_df['country'].nunique()} pays avec données vaccination")
@@ -105,7 +103,7 @@ class IntelligentCovidDataPipeline:
         """Charge et préprocess les données démographiques"""
         logger.info("👥 Chargement des données démographiques...")
         
-        demo_file = os.path.join(self.csv_data_path, 'consolidated_demographics_data.csv')
+        demo_file = os.path.join(self.csv_data_path, self.csv_files['demographics'])
         
         if not os.path.exists(demo_file):
             logger.error(f"❌ Fichier démographique introuvable: {demo_file}")
@@ -132,18 +130,8 @@ class IntelligentCovidDataPipeline:
         demo_df['demographic_vulnerability'] = (
             demo_df['elderly_ratio'] * demo_df['Mortality rate'] / 100
         )
-        demo_df['population_density_category'] = pd.cut(
-            demo_df['population_millions'], 
-            bins=[0, 1, 10, 50, float('inf')], 
-            labels=['Low', 'Medium', 'High', 'Very_High']
-        )
-        
-        # Extraction des noms de pays depuis les régions quand possible
-        # (certaines lignes contiennent des pays individuels)
-        demo_df['country_extracted'] = demo_df['Countries'].str.strip()
         
         logger.info(f"👥 {len(demo_df)} enregistrements démographiques traités")
-        logger.info(f"🏳️ {demo_df['Countries'].nunique()} entités démographiques")
         
         # Cache démographique
         for idx, row in demo_df.iterrows():
@@ -153,66 +141,108 @@ class IntelligentCovidDataPipeline:
         
         return demo_df
     
-    def load_covid_timeseries(self) -> pd.DataFrame:
-        """Charge les données COVID depuis MongoDB - VERSION BASÉE SUR server_mongo.js"""
-        logger.info("🦠 Chargement des séries temporelles COVID...")
+    def load_covid_timeseries_from_csv(self) -> pd.DataFrame:
+        """🦠 Charge les séries temporelles COVID depuis les CSV"""
+        logger.info("🦠 Chargement des séries temporelles COVID depuis CSV...")
         
-        # D'abord, récupérer la liste des pays (comme dans server_mongo.js)
-        countries_cursor = self.db.countries.find({}, {"country_name": 1, "_id": 1})
-        countries_list = list(countries_cursor)
+        # Option 1: Utiliser covid_19_clean_complete_clean.csv (le plus complet)
+        covid_file = os.path.join(self.csv_data_path, self.csv_files['covid_clean_complete'])
         
-        logger.info(f"🏳️ {len(countries_list)} pays trouvés")
-        
-        all_covid_data = []
-        
-        # Pour chaque pays, utiliser la même logique que server_mongo.js
-        for country_doc in countries_list:
-            country_name = country_doc['country_name']
+        if not os.path.exists(covid_file):
+            logger.error(f"❌ Fichier COVID principal introuvable: {covid_file}")
+            # Essayer le fichier alternatif
+            covid_file = os.path.join(self.csv_data_path, self.csv_files['full_grouped'])
             
-            # Pipeline IDENTIQUE à server_mongo.js
-            pipeline = [
-                {
-                    "$lookup": {
-                        "from": "countries",
-                        "localField": "country_id",
-                        "foreignField": "_id",
-                        "as": "country"
-                    }
-                },
-                {"$unwind": "$country"},
-                {"$match": {"country.country_name": country_name}},  # ⭐ Comme dans ton JS !
-                {"$sort": {"date": 1}},
-                {
-                    "$project": {
-                        "country_name": "$country.country_name",
-                        "date": 1,
-                        "confirmed": 1,
-                        "deaths": 1,
-                        "recovered": 1,
-                        "active": 1
-                    }
-                }
-            ]
-            
-            country_data = list(self.db.daily_stats.aggregate(pipeline))
-            
-            if country_data:
-                all_covid_data.extend(country_data)
-                if len(all_covid_data) % 1000 == 0:  # Log de progression
-                    logger.info(f"   📈 {len(all_covid_data)} points chargés...")
+            if not os.path.exists(covid_file):
+                raise ValueError("❌ Aucun fichier COVID trouvé!")
         
-        if len(all_covid_data) == 0:
-            raise ValueError("❌ Aucune donnée COVID trouvée dans MongoDB!")
+        logger.info(f"📄 Lecture du fichier: {covid_file}")
         
-        covid_df = pd.DataFrame(all_covid_data)
-        covid_df['date'] = pd.to_datetime(covid_df['date'])
+        # Chargement du CSV principal
+        covid_df = pd.read_csv(covid_file)
+        covid_df.columns = covid_df.columns.str.strip()
+        
+        # Normalisation des noms de colonnes (adaptation selon le format)
+        column_mapping = {
+            'Country/Region': 'country_name',
+            'Country_Region': 'country_name',
+            'Country': 'country_name',
+            'Date': 'date',
+            'Confirmed': 'confirmed',
+            'Deaths': 'deaths', 
+            'Recovered': 'recovered',
+            'Active': 'active'
+        }
+        
+        # Appliquer le mapping
+        for old_col, new_col in column_mapping.items():
+            if old_col in covid_df.columns:
+                covid_df = covid_df.rename(columns={old_col: new_col})
+        
+        # Vérifier les colonnes essentielles
+        required_cols = ['country_name', 'date', 'confirmed', 'deaths', 'recovered']
+        missing_cols = [col for col in required_cols if col not in covid_df.columns]
+        
+        if missing_cols:
+            logger.error(f"❌ Colonnes manquantes: {missing_cols}")
+            logger.info(f"📊 Colonnes disponibles: {list(covid_df.columns)}")
+            raise ValueError(f"Colonnes essentielles manquantes: {missing_cols}")
+        
+        # Nettoyage et conversion des types
+        covid_df['date'] = pd.to_datetime(covid_df['date'], errors='coerce')
+        covid_df['confirmed'] = pd.to_numeric(covid_df['confirmed'], errors='coerce').fillna(0)
+        covid_df['deaths'] = pd.to_numeric(covid_df['deaths'], errors='coerce').fillna(0)
+        covid_df['recovered'] = pd.to_numeric(covid_df['recovered'], errors='coerce').fillna(0)
+        
+        # Calculer 'active' si pas présent
+        if 'active' not in covid_df.columns:
+            covid_df['active'] = covid_df['confirmed'] - covid_df['deaths'] - covid_df['recovered']
+        else:
+            covid_df['active'] = pd.to_numeric(covid_df['active'], errors='coerce').fillna(0)
+        
+        # Supprimer les lignes avec dates invalides
+        covid_df = covid_df.dropna(subset=['date'])
+        
+        # Filtrer les pays valides
+        covid_df = covid_df[covid_df['country_name'].notna()]
+        covid_df = covid_df[covid_df['country_name'] != '']
+        
+        # Trier par pays et date
         covid_df = covid_df.sort_values(['country_name', 'date'])
         
-        # Calcul des features COVID avancées (reste pareil...)
+        # Calcul des features COVID avancées
+        logger.info("🧠 Calcul des features COVID avancées...")
+        
+        # Features par pays
         covid_df['new_cases'] = covid_df.groupby('country_name')['confirmed'].transform(
             lambda x: x.diff().fillna(0).clip(lower=0)
         )
-        # ... etc (le reste du code reste identique)
+        covid_df['new_deaths'] = covid_df.groupby('country_name')['deaths'].transform(
+            lambda x: x.diff().fillna(0).clip(lower=0)
+        )
+        covid_df['new_recovered'] = covid_df.groupby('country_name')['recovered'].transform(
+            lambda x: x.diff().fillna(0).clip(lower=0)
+        )
+        
+        # Moyennes mobiles (7 jours)
+        covid_df['new_cases_ma7'] = covid_df.groupby('country_name')['new_cases'].transform(
+            lambda x: x.rolling(window=7, min_periods=1).mean()
+        )
+        covid_df['new_deaths_ma7'] = covid_df.groupby('country_name')['new_deaths'].transform(
+            lambda x: x.rolling(window=7, min_periods=1).mean()
+        )
+        
+        # Taux calculés
+        covid_df['growth_rate'] = covid_df.groupby('country_name')['confirmed'].transform(
+            lambda x: x.pct_change().fillna(0)
+        )
+        covid_df['mortality_rate'] = (covid_df['deaths'] / covid_df['confirmed'].clip(lower=1) * 100).fillna(0)
+        covid_df['recovery_rate'] = (covid_df['recovered'] / covid_df['confirmed'].clip(lower=1) * 100).fillna(0)
+        
+        # Tendance (7 jours)
+        covid_df['trend_7d'] = covid_df.groupby('country_name')['new_cases_ma7'].transform(
+            lambda x: x.diff().apply(lambda v: 1 if v > 0 else (-1 if v < 0 else 0))
+        )
         
         logger.info(f"🦠 {len(covid_df)} points temporels COVID chargés")
         logger.info(f"🏳️ {covid_df['country_name'].nunique()} pays")
@@ -255,8 +285,8 @@ class IntelligentCovidDataPipeline:
             'vaccination_rate_7d': 0,
             'vaccination_acceleration': 0,
             'vaccination_coverage_est': 0,
-            'vaccination_momentum': 0,  # Nouvelle feature
-            'days_since_vax_start': 0,  # Nouvelle feature
+            'vaccination_momentum': 0,
+            'days_since_vax_start': 0,
         }
         
         # Recherche dans le cache
@@ -285,7 +315,6 @@ class IntelligentCovidDataPipeline:
                 features['vaccination_coverage_est'] = float(closest_vax.get('vaccination_coverage_est', 0))
                 
                 # Nouvelles features calculées
-                # Momentum = tendance récente de vaccination
                 recent_data = vaccination_data[vaccination_data['date'] <= target_date].tail(14)
                 if len(recent_data) > 7:
                     recent_avg = recent_data['daily_vaccinations'].mean()
@@ -305,7 +334,7 @@ class IntelligentCovidDataPipeline:
         
         # Valeurs par défaut
         features = {
-            'population_millions': 50,  # Valeur médiane mondiale
+            'population_millions': 50,
             'birth_rate': 15,
             'mortality_rate': 8,
             'life_expectancy': 70,
@@ -314,7 +343,6 @@ class IntelligentCovidDataPipeline:
             'growth_rate': 1.0,
             'elderly_ratio': 0.08,
             'demographic_vulnerability': 0.5,
-            'population_density_cat': 'Medium'
         }
         
         # Recherche dans le cache démographique
@@ -357,7 +385,7 @@ class IntelligentCovidDataPipeline:
                 'day_of_year': date.timetuple().tm_yday,
                 'month': date.month,
                 'quarter': (date.month - 1) // 3 + 1,
-                'week_of_year': date.isocalendar().week,
+                'week_of_year': date.isocalendar()[1],  # Fix: [1] pour récupérer la semaine
                 'month_sin': np.sin(2 * np.pi * date.month / 12),
                 'month_cos': np.cos(2 * np.pi * date.month / 12),
                 'weekday': date.weekday(),
@@ -379,7 +407,7 @@ class IntelligentCovidDataPipeline:
                 'demographic_covid_risk': demographic_features['demographic_vulnerability'] * 
                                         base_features['mortality_rate'],
                 'vax_effectiveness_lag': vaccination_features['cumulative_vaccinations'] * 
-                                       np.exp(-vaccination_features['days_since_vax_start'] / 21),  # Effet avec délai
+                                       np.exp(-vaccination_features['days_since_vax_start'] / 21),
             }
             
             # Fusion de toutes les features
@@ -401,17 +429,15 @@ class IntelligentCovidDataPipeline:
         return enriched_df
     
     def run_full_pipeline(self) -> pd.DataFrame:
-        """Execute le pipeline complet"""
-        logger.info("🚀 DÉMARRAGE DU PIPELINE COMPLET")
+        """Execute le pipeline complet 100% CSV"""
+        logger.info("🚀 DÉMARRAGE DU PIPELINE CSV COMPLET")
         
-        # 1. Connexion MongoDB
-        if not self.connect_mongodb():
-            raise Exception("❌ Impossible de se connecter à MongoDB")
-        
-        # 2. Chargement des données
+        # 1. Chargement des données auxiliaires
         vaccination_df = self.load_vaccination_data()
         demographics_df = self.load_demographics_data()
-        covid_df = self.load_covid_timeseries()
+        
+        # 2. Chargement des séries temporelles COVID depuis CSV
+        covid_df = self.load_covid_timeseries_from_csv()
         
         # 3. Création du dataset unifié enrichi
         enriched_dataset = self.create_advanced_features(covid_df)
@@ -421,17 +447,15 @@ class IntelligentCovidDataPipeline:
         enriched_dataset.to_csv(output_file, index=False)
         logger.info(f"💾 Dataset enrichi sauvegardé: {output_file}")
         
-        logger.info("🎉 PIPELINE TERMINÉ AVEC SUCCÈS!")
+        logger.info("🎉 PIPELINE CSV TERMINÉ AVEC SUCCÈS!")
         return enriched_dataset
 
 if __name__ == "__main__":
     # Configuration
-    MONGO_URI = os.getenv('MONGO_URI')
-    DB_NAME = os.getenv('DB_NAME')
     CSV_DATA_PATH = '../data/dataset_clean'
     
     # Exécution du pipeline
-    pipeline = IntelligentCovidDataPipeline(MONGO_URI, DB_NAME, CSV_DATA_PATH)
+    pipeline = CSVCovidDataPipeline(CSV_DATA_PATH)
     enriched_data = pipeline.run_full_pipeline()
     
     print("\n🎯 STATISTIQUES FINALES:")

@@ -1,0 +1,63 @@
+{
+  "training_summary": {
+    "model_type": "COVID Revolutionary Transformer v2.0 (CSV)",
+    "data_source": "Pure CSV Pipeline",
+    "training_date": "2025-06-28T21:02:18.884656",
+    "dataset_size": 49068,
+    "countries_count": 187,
+    "features_count": 44,
+    "epochs_completed": 16
+  },
+  "csv_data_sources": {
+    "covid_timeseries": "covid_19_clean_complete_clean.csv / full_grouped_clean.csv",
+    "vaccination_data": "cumulative-covid-vaccinations_clean.csv",
+    "demographics": "consolidated_demographics_data.csv"
+  },
+  "model_architecture": {
+    "d_model": 256,
+    "n_heads": 8,
+    "n_layers": 6,
+    "d_ff": 1024,
+    "dropout": 0.1,
+    "prediction_horizons": [
+      1,
+      7,
+      14,
+      30
+    ]
+  },
+  "training_config": {
+    "epochs": 20,
+    "batch_size": 16,
+    "learning_rate": 0.0001,
+    "sequence_length": 30,
+    "val_split": 0.2,
+    "model_config": {
+      "d_model": 256,
+      "n_heads": 8,
+      "n_layers": 6,
+      "d_ff": 1024,
+      "dropout": 0.1,
+      "prediction_horizons": [
+        1,
+        7,
+        14,
+        30
+      ]
+    }
+  },
+  "final_performance": {
+    "confirmed_mae": "18.573519",
+    "confirmed_mape": "542463330000.0",
+    "confirmed_r2": -0.024996100790304343,
+    "deaths_mae": "58.630085",
+    "deaths_mape": "279923970000000.0",
+    "deaths_r2": -0.01639540995017419,
+    "recovered_mae": "12.708978",
+    "recovered_mape": "54876537000000.0",
+    "recovered_r2": -0.05421792377551782,
+    "active_mae": "25.083235",
+    "active_mape": "9351224000000.0",
+    "active_r2": -0.0205218168372876
+  }
+}

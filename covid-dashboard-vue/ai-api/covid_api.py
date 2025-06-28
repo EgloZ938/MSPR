@@ -10,7 +10,6 @@ from typing import List, Optional, Dict, Union
 import joblib
 import os
 import json
-from pymongo import MongoClient
 import logging
 from pathlib import Path
 
@@ -18,6 +17,7 @@ from pathlib import Path
 import sys
 sys.path.append('.')
 from covid_ai_model import CovidRevolutionaryTransformer
+from covid_data_pipeline import CSVCovidDataPipeline
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -26,9 +26,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="COVID-19 Revolutionary AI API", 
-    version="2.0.0",
-    description="API révolutionnaire avec Transformer hybride pour prédictions COVID multi-horizons"
+    title="COVID-19 Revolutionary AI API - CSV Edition", 
+    version="2.1.0",
+    description="API révolutionnaire avec Transformer hybride pour prédictions COVID multi-horizons (Version CSV Pure)"
 )
 
 # CORS
@@ -41,12 +41,10 @@ app.add_middleware(
 )
 
 # Configuration
-MONGO_URI = os.getenv('MONGO_URI')
-DB_NAME = os.getenv('DB_NAME')
-CSV_DATA_PATH = '../data/dataset_clean'
+CSV_DATA_PATH = os.getenv('CSV_DATA_PATH', '../data/dataset_clean')
 MODEL_DIR = 'models'
 
-# Modèles Pydantic
+# Modèles Pydantic (identiques à la version MongoDB)
 class RevolutionaryPredictionRequest(BaseModel):
     country: str = Field(..., description="Nom du pays")
     region: Optional[str] = Field(None, description="Région (optionnel)")
@@ -79,10 +77,11 @@ class RevolutionaryPredictionResponse(BaseModel):
 class HealthCheck(BaseModel):
     status: str
     model_loaded: bool
-    mongodb_connected: bool
+    csv_data_available: bool
     revolutionary_features_count: int
     countries_available: int
     model_performance: Optional[Dict[str, float]] = None
+    data_source: str = "CSV Files"
 
 # Variables globales
 model = None
@@ -90,9 +89,8 @@ sequence_scaler = None
 static_scaler = None
 target_scaler = None
 model_config = None
-mongodb_client = None
-db = None
-data_pipeline = None
+csv_pipeline = None
+enriched_data = None
 
 # Features lists (synchronisées avec l'entraînement)
 TEMPORAL_FEATURES = [
@@ -115,8 +113,8 @@ STATIC_FEATURES = [
     'day_of_year', 'quarter', 'week_of_year', 'weekday', 'is_weekend'
 ]
 
-class RevolutionaryCovidPredictor:
-    """Prédicteur révolutionnaire intégré"""
+class CSVRevolutionaryCovidPredictor:
+    """🚀 Prédicteur révolutionnaire 100% CSV"""
     
     def __init__(self):
         self.sequence_length = 30
@@ -124,110 +122,88 @@ class RevolutionaryCovidPredictor:
         self.vaccination_cache = {}
         self.demographics_cache = {}
         
-        logger.info(f"🚀 Prédicteur révolutionnaire initialisé sur {self.device}")
+        logger.info(f"🚀 Prédicteur CSV révolutionnaire initialisé sur {self.device}")
     
-    async def connect_mongodb(self):
-        """Connexion à MongoDB"""
-        global mongodb_client, db
+    def load_csv_data(self):
+        """🗂️ Charge les données CSV enrichies"""
+        global enriched_data
+        
         try:
-            mongodb_client = MongoClient(MONGO_URI)
-            db = mongodb_client[DB_NAME]
-            db.command('ping')
-            logger.info("✅ MongoDB connecté")
+            # Essayer de charger le dataset enrichi s'il existe
+            enriched_file = os.path.join(CSV_DATA_PATH, 'enriched_covid_dataset.csv')
+            
+            if os.path.exists(enriched_file):
+                logger.info(f"📂 Chargement du dataset enrichi: {enriched_file}")
+                enriched_data = pd.read_csv(enriched_file)
+                enriched_data['date'] = pd.to_datetime(enriched_data['date'])
+                logger.info(f"✅ Dataset enrichi chargé: {len(enriched_data)} lignes")
+            else:
+                # Créer le dataset enrichi à la volée
+                logger.info("🔄 Création du dataset enrichi à partir des CSV...")
+                global csv_pipeline
+                csv_pipeline = CSVCovidDataPipeline(CSV_DATA_PATH)
+                enriched_data = csv_pipeline.run_full_pipeline()
+            
+            # Mettre à jour les caches
+            self.update_caches_from_enriched_data()
+            
             return True
+            
         except Exception as e:
-            logger.error(f"❌ Erreur MongoDB: {e}")
+            logger.error(f"❌ Erreur chargement données CSV: {e}")
             return False
     
-    def load_data_caches(self):
-        """Charge les caches de données vaccination et démographie"""
-        try:
-            # Cache vaccination
-            vax_file = os.path.join(CSV_DATA_PATH, 'cumulative-covid-vaccinations_clean.csv')
-            if os.path.exists(vax_file):
-                vax_df = pd.read_csv(vax_file)
-                vax_df['date'] = pd.to_datetime(vax_df['date'])
-                
-                for country in vax_df['country'].unique():
-                    if pd.notna(country):
-                        country_data = vax_df[vax_df['country'] == country].sort_values('date')
-                        self.vaccination_cache[country.strip().lower()] = country_data
-                
-                logger.info(f"💉 Cache vaccination: {len(self.vaccination_cache)} pays")
-            
-            # Cache démographie
-            demo_file = os.path.join(CSV_DATA_PATH, 'consolidated_demographics_data.csv')
-            if os.path.exists(demo_file):
-                demo_df = pd.read_csv(demo_file)
-                
-                for idx, row in demo_df.iterrows():
-                    country_key = row['Countries'].strip().lower() if pd.notna(row['Countries']) else None
-                    if country_key:
-                        self.demographics_cache[country_key] = row.to_dict()
-                
-                logger.info(f"👥 Cache démographie: {len(self.demographics_cache)} entités")
-                
-        except Exception as e:
-            logger.error(f"❌ Erreur chargement caches: {e}")
+    def update_caches_from_enriched_data(self):
+        """📋 Met à jour les caches depuis les données enrichies"""
+        if enriched_data is None:
+            return
+        
+        # Cache vaccination depuis les données enrichies
+        vaccination_cols = [col for col in enriched_data.columns if 'vaccination' in col or 'vax' in col]
+        if vaccination_cols:
+            for country in enriched_data['country_name'].unique():
+                if pd.notna(country):
+                    country_data = enriched_data[enriched_data['country_name'] == country][
+                        ['date'] + vaccination_cols
+                    ].sort_values('date')
+                    self.vaccination_cache[country.strip().lower()] = country_data
+        
+        logger.info(f"📋 Caches mis à jour: {len(self.vaccination_cache)} pays")
     
-    async def load_country_data(self, country: str):
-        """Charge les données COVID depuis MongoDB"""
+    async def load_country_data_from_csv(self, country: str):
+        """📊 Charge les données COVID pour un pays depuis le CSV enrichi"""
         try:
-            pipeline = [
-                {
-                    "$lookup": {
-                        "from": "countries",
-                        "localField": "country_id",
-                        "foreignField": "_id",
-                        "as": "country"
-                    }
-                },
-                {"$unwind": "$country"},
-                {"$match": {"country.country_name": country}},
-                {"$sort": {"date": 1}},
-                {
-                    "$project": {
-                        "date": 1,
-                        "confirmed": 1,
-                        "deaths": 1,
-                        "recovered": 1,
-                        "active": 1
-                    }
-                }
-            ]
+            if enriched_data is None:
+                raise HTTPException(status_code=503, detail="Données CSV non chargées")
             
-            covid_data = list(db.daily_stats.aggregate(pipeline))
+            # Filtrer par pays
+            country_data = enriched_data[enriched_data['country_name'] == country].copy()
             
-            if not covid_data:
+            if len(country_data) == 0:
                 raise HTTPException(status_code=404, detail=f"Aucune donnée pour {country}")
             
-            covid_df = pd.DataFrame(covid_data)
-            covid_df['date'] = pd.to_datetime(covid_df['date'])
-            covid_df = covid_df.sort_values('date')
+            # Trier par date
+            country_data = country_data.sort_values('date')
             
-            # Calcul des features COVID avancées
-            covid_df['new_cases'] = covid_df['confirmed'].diff().fillna(0).clip(lower=0)
-            covid_df['new_deaths'] = covid_df['deaths'].diff().fillna(0).clip(lower=0)
-            covid_df['new_recovered'] = covid_df['recovered'].diff().fillna(0).clip(lower=0)
+            # S'assurer que les colonnes essentielles existent
+            if 'active' not in country_data.columns:
+                country_data['active'] = (
+                    country_data['confirmed'] - 
+                    country_data['deaths'] - 
+                    country_data['recovered']
+                )
             
-            # Moyennes mobiles
-            covid_df['new_cases_ma7'] = covid_df['new_cases'].rolling(window=7, min_periods=1).mean()
-            covid_df['new_deaths_ma7'] = covid_df['new_deaths'].rolling(window=7, min_periods=1).mean()
+            logger.info(f"📊 Données CSV chargées pour {country}: {len(country_data)} points")
+            return country_data
             
-            # Taux
-            covid_df['growth_rate'] = covid_df['confirmed'].pct_change().fillna(0)
-            covid_df['mortality_rate'] = (covid_df['deaths'] / covid_df['confirmed'].clip(lower=1) * 100).fillna(0)
-            covid_df['recovery_rate'] = (covid_df['recovered'] / covid_df['confirmed'].clip(lower=1) * 100).fillna(0)
-            covid_df['trend_7d'] = covid_df['new_cases_ma7'].diff().apply(lambda x: 1 if x > 0 else (-1 if x < 0 else 0))
-            
-            return covid_df
-            
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.error(f"Erreur chargement {country}: {e}")
+            logger.error(f"Erreur chargement CSV {country}: {e}")
             raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
     
-    def get_vaccination_features(self, country: str, target_date: datetime):
-        """Récupère features vaccination avancées"""
+    def get_vaccination_features_csv(self, country: str, target_date: datetime):
+        """💉 Récupère features vaccination depuis les données CSV"""
         country_norm = country.strip().lower()
         
         features = {
@@ -240,46 +216,31 @@ class RevolutionaryCovidPredictor:
             'days_since_vax_start': 0,
         }
         
-        # Recherche dans cache
-        vaccination_data = None
-        for cached_country, data in self.vaccination_cache.items():
-            if country_norm in cached_country or cached_country in country_norm:
-                vaccination_data = data
-                break
-        
-        if vaccination_data is not None and len(vaccination_data) > 0:
-            vaccination_data = vaccination_data.copy()
-            vaccination_data['date_diff'] = abs((vaccination_data['date'] - target_date).dt.days)
-            valid_dates = vaccination_data[vaccination_data['date_diff'] <= 30]
+        # Recherche dans les données enrichies
+        if enriched_data is not None:
+            country_data = enriched_data[
+                enriched_data['country_name'].str.lower() == country_norm
+            ]
             
-            if len(valid_dates) > 0:
-                closest_idx = valid_dates['date_diff'].idxmin()
-                closest_vax = valid_dates.loc[closest_idx]
+            if len(country_data) > 0:
+                # Trouver la date la plus proche
+                country_data = country_data.copy()
+                country_data['date_diff'] = abs((country_data['date'] - target_date).dt.days)
                 
-                features['cumulative_vaccinations'] = float(closest_vax['cumulative_vaccinations'])
-                features['daily_vaccinations'] = float(closest_vax['daily_vaccinations'])
+                valid_dates = country_data[country_data['date_diff'] <= 30]
                 
-                # Features calculées
-                recent_data = vaccination_data[vaccination_data['date'] <= target_date].tail(14)
-                if len(recent_data) > 7:
-                    features['vaccination_rate_7d'] = recent_data['daily_vaccinations'].tail(7).mean()
-                    features['vaccination_acceleration'] = recent_data['daily_vaccinations'].diff().tail(7).mean()
+                if len(valid_dates) > 0:
+                    closest_data = valid_dates.loc[valid_dates['date_diff'].idxmin()]
                     
-                    recent_avg = recent_data['daily_vaccinations'].tail(7).mean()
-                    older_avg = recent_data['daily_vaccinations'].head(7).mean()
-                    features['vaccination_momentum'] = (recent_avg - older_avg) / (older_avg + 1)
-                
-                # Jours depuis début vaccination
-                first_vax_date = vaccination_data[vaccination_data['cumulative_vaccinations'] > 0]['date'].min()
-                if pd.notna(first_vax_date):
-                    features['days_since_vax_start'] = (target_date - first_vax_date).days
-                
-                features['vaccination_coverage_est'] = features['cumulative_vaccinations'] / 100000
+                    # Remplir les features disponibles
+                    for feature in features.keys():
+                        if feature in closest_data:
+                            features[feature] = float(closest_data[feature])
         
         return features
     
-    def get_demographic_features(self, country: str):
-        """Récupère features démographiques"""
+    def get_demographic_features_csv(self, country: str):
+        """👥 Récupère features démographiques depuis les données CSV"""
         country_norm = country.strip().lower()
         
         features = {
@@ -294,26 +255,25 @@ class RevolutionaryCovidPredictor:
             'demographic_vulnerability': 0.5,
         }
         
-        # Recherche dans cache
-        for cached_country, data in self.demographics_cache.items():
-            if country_norm in cached_country or cached_country in country_norm:
-                features.update({
-                    'population_millions': data.get('population_millions', features['population_millions']),
-                    'birth_rate': data.get('Birth rate', features['birth_rate']),
-                    'mortality_rate': data.get('Mortality rate', features['mortality_rate']),
-                    'life_expectancy': data.get('Life expectancy', features['life_expectancy']),
-                    'infant_mortality_rate': data.get('Infant mortality rate', features['infant_mortality_rate']),
-                    'fertility_rate': data.get('Number of children per woman', features['fertility_rate']),
-                    'growth_rate': data.get('Growth rate', features['growth_rate']),
-                    'elderly_ratio': data.get('elderly_ratio', features['elderly_ratio']),
-                    'demographic_vulnerability': data.get('demographic_vulnerability', features['demographic_vulnerability']),
-                })
-                break
+        # Recherche dans les données enrichies
+        if enriched_data is not None:
+            country_data = enriched_data[
+                enriched_data['country_name'].str.lower() == country_norm
+            ]
+            
+            if len(country_data) > 0:
+                # Prendre les valeurs moyennes (car constantes pour un pays)
+                latest_data = country_data.iloc[-1]
+                
+                # Remplir les features disponibles
+                for feature in features.keys():
+                    if feature in latest_data:
+                        features[feature] = float(latest_data[feature])
         
         return features
     
-    def create_features_for_prediction(self, covid_df: pd.DataFrame, country: str, prediction_date: datetime):
-        """Crée toutes les features pour la prédiction"""
+    def create_features_for_prediction_csv(self, covid_df: pd.DataFrame, country: str, prediction_date: datetime):
+        """🧠 Crée toutes les features pour la prédiction depuis CSV"""
         
         # Features temporelles pour la date de prédiction
         temporal_features = {
@@ -321,16 +281,16 @@ class RevolutionaryCovidPredictor:
             'month_cos': np.cos(2 * np.pi * prediction_date.month / 12),
             'day_of_year': prediction_date.timetuple().tm_yday,
             'quarter': (prediction_date.month - 1) // 3 + 1,
-            'week_of_year': prediction_date.isocalendar().week,
+            'week_of_year': prediction_date.isocalendar()[1],  # Fix: [1] pour récupérer la semaine
             'weekday': prediction_date.weekday(),
             'is_weekend': 1 if prediction_date.weekday() >= 5 else 0,
         }
         
         # Features vaccination
-        vaccination_features = self.get_vaccination_features(country, prediction_date)
+        vaccination_features = self.get_vaccination_features_csv(country, prediction_date)
         
         # Features démographiques
-        demographic_features = self.get_demographic_features(country)
+        demographic_features = self.get_demographic_features_csv(country)
         
         # Features d'interaction
         interaction_features = {
@@ -354,17 +314,17 @@ class RevolutionaryCovidPredictor:
         
         return static_features
     
-    async def predict_revolutionary(self, country: str, region: str = None, 
-                                  prediction_horizons: List[int] = [1, 7, 14, 30],
-                                  start_date: str = None, include_uncertainty: bool = True,
-                                  include_attention: bool = False):
-        """Prédiction révolutionnaire multi-horizons"""
+    async def predict_revolutionary_csv(self, country: str, region: str = None, 
+                                      prediction_horizons: List[int] = [1, 7, 14, 30],
+                                      start_date: str = None, include_uncertainty: bool = True,
+                                      include_attention: bool = False):
+        """🚀 Prédiction révolutionnaire multi-horizons depuis CSV"""
         try:
             if model is None:
                 raise HTTPException(status_code=503, detail="Modèle non chargé")
             
-            # Charger données COVID
-            covid_df = await self.load_country_data(country)
+            # Charger données COVID depuis CSV
+            covid_df = await self.load_country_data_from_csv(country)
             
             # Date de début prédiction
             if start_date:
@@ -393,7 +353,7 @@ class RevolutionaryCovidPredictor:
             ).reshape(temporal_sequence.shape)
             
             # Créer features statiques
-            static_features_dict = self.create_features_for_prediction(covid_df, country, prediction_start)
+            static_features_dict = self.create_features_for_prediction_csv(covid_df, country, prediction_start)
             static_features = np.array([static_features_dict.get(f, 0) for f in STATIC_FEATURES], dtype=np.float32)
             static_features_scaled = static_scaler.transform(static_features.reshape(1, -1))[0]
             
@@ -450,7 +410,6 @@ class RevolutionaryCovidPredictor:
                         
                         # Score d'attention
                         if include_attention and attention_weights:
-                            # Moyenne des poids d'attention sur toutes les couches et têtes
                             avg_attention = torch.stack(attention_weights).mean().item()
                             result.attention_score = float(avg_attention)
                         
@@ -461,7 +420,7 @@ class RevolutionaryCovidPredictor:
                 'current_coverage': static_features_dict['vaccination_coverage_est'],
                 'vaccination_momentum': static_features_dict['vaccination_momentum'],
                 'effectiveness_score': static_features_dict['vax_effectiveness_lag'],
-                'data_available': len(self.vaccination_cache) > 0
+                'data_available': True
             }
             
             # Facteurs démographiques
@@ -474,10 +433,10 @@ class RevolutionaryCovidPredictor:
             
             # Confiance du modèle
             model_confidence = {
-                'data_quality': min(1.0, len(covid_df) / 365),  # Plus de données = plus de confiance
+                'data_quality': min(1.0, len(covid_df) / 365),
                 'vaccination_data_coverage': 1.0 if static_features_dict['cumulative_vaccinations'] > 0 else 0.3,
-                'demographic_data_coverage': 0.9,  # Généralement disponible
-                'overall_confidence': 0.8  # À ajuster selon performance réelle
+                'demographic_data_coverage': 0.9,
+                'overall_confidence': 0.8
             }
             
             return {
@@ -486,40 +445,40 @@ class RevolutionaryCovidPredictor:
                 "demographic_factors": demographic_factors,
                 "model_confidence": model_confidence,
                 "model_info": {
-                    "model_type": "COVID Revolutionary Transformer v2.0",
+                    "model_type": "COVID Revolutionary Transformer v2.1 CSV",
                     "sequence_length": self.sequence_length,
                     "prediction_start_date": prediction_start.strftime("%Y-%m-%d"),
                     "last_data_date": covid_df['date'].max().strftime("%Y-%m-%d"),
                     "data_points_used": len(covid_df),
                     "features_count": len(TEMPORAL_FEATURES) + len(STATIC_FEATURES),
                     "device": str(self.device),
-                    "horizons_supported": [1, 7, 14, 30]
+                    "horizons_supported": [1, 7, 14, 30],
+                    "data_source": "CSV Files"
                 }
             }
         
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Erreur prédiction: {e}")
+            logger.error(f"Erreur prédiction CSV: {e}")
             import traceback
             traceback.print_exc()
             raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
 # Instance du prédicteur
-predictor = RevolutionaryCovidPredictor()
+predictor = CSVRevolutionaryCovidPredictor()
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialisation révolutionnaire"""
+    """🚀 Initialisation révolutionnaire CSV"""
     global model, sequence_scaler, static_scaler, target_scaler, model_config
     
-    logger.info("🚀 Démarrage API Révolutionnaire COVID IA v2.0...")
+    logger.info("🚀 Démarrage API Révolutionnaire COVID IA v2.1 CSV...")
     
-    # MongoDB
-    await predictor.connect_mongodb()
-    
-    # Caches de données
-    predictor.load_data_caches()
+    # Charger les données CSV
+    csv_loaded = predictor.load_csv_data()
+    if not csv_loaded:
+        logger.warning("⚠️ Données CSV non chargées - API en mode dégradé")
     
     # Chargement du modèle révolutionnaire
     try:
@@ -545,7 +504,7 @@ async def startup_event():
             
             model.load_state_dict(torch.load(model_path, map_location=predictor.device))
             model.eval()
-            logger.info("✅ Modèle révolutionnaire chargé")
+            logger.info("✅ Modèle révolutionnaire CSV chargé")
             
             # Charger les scalers
             if os.path.exists(sequence_scaler_path):
@@ -565,22 +524,22 @@ async def startup_event():
     except Exception as e:
         logger.error(f"❌ Erreur chargement modèle: {e}")
     
-    logger.info("✅ API Révolutionnaire prête!")
+    logger.info("✅ API Révolutionnaire CSV prête!")
 
 @app.get("/", response_model=HealthCheck)
 async def health_check():
-    """Health check révolutionnaire"""
-    mongodb_connected = mongodb_client is not None
+    """🏥 Health check révolutionnaire CSV"""
+    csv_data_available = enriched_data is not None
     model_loaded = model is not None
     
     countries_count = 0
-    if mongodb_connected:
+    if csv_data_available:
         try:
-            countries_count = db.countries.count_documents({})
+            countries_count = enriched_data['country_name'].nunique()
         except:
             pass
     
-    # Performance du modèle (à charger depuis les métriques sauvegardées)
+    # Performance du modèle
     model_performance = None
     if model_config:
         try:
@@ -597,21 +556,22 @@ async def health_check():
             pass
     
     return HealthCheck(
-        status="revolutionary" if all([mongodb_connected, model_loaded]) else "partial",
+        status="revolutionary_csv" if all([csv_data_available, model_loaded]) else "partial",
         model_loaded=model_loaded,
-        mongodb_connected=mongodb_connected,
+        csv_data_available=csv_data_available,
         revolutionary_features_count=len(TEMPORAL_FEATURES) + len(STATIC_FEATURES),
         countries_available=countries_count,
-        model_performance=model_performance
+        model_performance=model_performance,
+        data_source="CSV Files"
     )
 
 @app.post("/predict", response_model=RevolutionaryPredictionResponse)
-async def predict_covid_revolutionary(request: RevolutionaryPredictionRequest):
-    """Prédiction COVID révolutionnaire multi-horizons"""
-    logger.info(f"🧠 Prédiction révolutionnaire pour {request.country}, horizons: {request.prediction_horizons}")
+async def predict_covid_revolutionary_csv(request: RevolutionaryPredictionRequest):
+    """🚀 Prédiction COVID révolutionnaire multi-horizons depuis CSV"""
+    logger.info(f"🧠 Prédiction révolutionnaire CSV pour {request.country}, horizons: {request.prediction_horizons}")
     
     try:
-        result = await predictor.predict_revolutionary(
+        result = await predictor.predict_revolutionary_csv(
             country=request.country,
             region=request.region,
             prediction_horizons=request.prediction_horizons,
@@ -635,27 +595,30 @@ async def predict_covid_revolutionary(request: RevolutionaryPredictionRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur: {e}")
-        raise HTTPException(status_code=500, detail="Erreur serveur révolutionnaire")
+        logger.error(f"Erreur CSV: {e}")
+        raise HTTPException(status_code=500, detail="Erreur serveur révolutionnaire CSV")
 
 @app.get("/countries")
-async def get_available_countries():
-    """Liste des pays disponibles"""
+async def get_available_countries_csv():
+    """📋 Liste des pays disponibles dans les CSV"""
     try:
-        countries = db.countries.find({}, {"country_name": 1, "_id": 0})
-        countries_list = [country["country_name"] for country in countries]
+        if enriched_data is None:
+            raise HTTPException(status_code=503, detail="Données CSV non chargées")
+        
+        countries_list = sorted(enriched_data['country_name'].dropna().unique().tolist())
         return {
             "countries": countries_list, 
             "count": len(countries_list),
-            "revolutionary_features_available": True
+            "revolutionary_features_available": True,
+            "data_source": "CSV Files"
         }
     except Exception as e:
-        logger.error(f"Erreur pays: {e}")
-        raise HTTPException(status_code=500, detail="Erreur récupération pays")
+        logger.error(f"Erreur pays CSV: {e}")
+        raise HTTPException(status_code=500, detail="Erreur récupération pays CSV")
 
 @app.get("/model/performance")
-async def get_model_performance():
-    """Performance détaillée du modèle révolutionnaire"""
+async def get_model_performance_csv():
+    """📊 Performance détaillée du modèle révolutionnaire CSV"""
     if model is None:
         raise HTTPException(status_code=503, detail="Modèle non chargé")
     
@@ -665,7 +628,7 @@ async def get_model_performance():
         
         return {
             "model_architecture": {
-                "type": "Revolutionary Transformer + LSTM",
+                "type": "Revolutionary Transformer + LSTM (CSV)",
                 "parameters": sum(p.numel() for p in model.parameters()),
                 "layers": config['model_config']['n_layers'],
                 "attention_heads": config['model_config']['n_heads'],
@@ -673,9 +636,9 @@ async def get_model_performance():
             },
             "performance_metrics": config.get('training_history', {}).get('val_metrics', [])[-5:] if config.get('training_history') else [],
             "data_sources": {
-                "covid_timeseries": "MongoDB 2020-2022",
-                "vaccination_data": "CSV 2021-2025", 
-                "demographics": "INED Demographics",
+                "covid_timeseries": "CSV Files (covid_19_clean_complete_clean.csv)", 
+                "vaccination_data": "CSV (cumulative-covid-vaccinations_clean.csv)", 
+                "demographics": "CSV (consolidated_demographics_data.csv)",
                 "features_engineered": len(TEMPORAL_FEATURES) + len(STATIC_FEATURES)
             },
             "capabilities": {
@@ -683,24 +646,25 @@ async def get_model_performance():
                 "uncertainty_estimation": True,
                 "attention_visualization": True,
                 "vaccination_impact_analysis": True,
-                "demographic_integration": True
+                "demographic_integration": True,
+                "csv_native": True
             }
         }
     
     except Exception as e:
-        logger.error(f"Erreur performance: {e}")
+        logger.error(f"Erreur performance CSV: {e}")
         raise HTTPException(status_code=500, detail="Erreur récupération performance")
 
 @app.get("/vaccination/{country}")
-async def get_vaccination_analysis(country: str, date: str = None):
-    """Analyse vaccination révolutionnaire pour un pays"""
+async def get_vaccination_analysis_csv(country: str, date: str = None):
+    """💉 Analyse vaccination révolutionnaire CSV pour un pays"""
     if date:
         target_date = pd.to_datetime(date)
     else:
         target_date = datetime.now()
     
-    vaccination_features = predictor.get_vaccination_features(country, target_date)
-    demographic_features = predictor.get_demographic_features(country)
+    vaccination_features = predictor.get_vaccination_features_csv(country, target_date)
+    demographic_features = predictor.get_demographic_features_csv(country)
     
     # Analyse avancée
     analysis = {
@@ -729,9 +693,44 @@ async def get_vaccination_analysis(country: str, date: str = None):
         "data_sources_available": {
             "vaccination": vaccination_features['cumulative_vaccinations'] > 0,
             "demographics": demographic_features['population_millions'] > 0
-        }
+        },
+        "data_source": "CSV Files"
     }
+
+@app.get("/csv/data-info")
+async def get_csv_data_info():
+    """📊 Informations sur les données CSV chargées"""
+    if enriched_data is None:
+        raise HTTPException(status_code=503, detail="Données CSV non chargées")
+    
+    try:
+        return {
+            "dataset_info": {
+                "total_rows": len(enriched_data),
+                "total_features": len(enriched_data.columns),
+                "countries_count": enriched_data['country_name'].nunique(),
+                "date_range": {
+                    "start": enriched_data['date'].min().strftime('%Y-%m-%d'),
+                    "end": enriched_data['date'].max().strftime('%Y-%m-%d'),
+                    "days": (enriched_data['date'].max() - enriched_data['date'].min()).days
+                }
+            },
+            "feature_categories": {
+                "temporal_features": len(TEMPORAL_FEATURES),
+                "static_features": len(STATIC_FEATURES),
+                "total_revolutionary_features": len(TEMPORAL_FEATURES) + len(STATIC_FEATURES)
+            },
+            "data_quality": {
+                "missing_values_pct": (enriched_data.isnull().sum().sum() / (len(enriched_data) * len(enriched_data.columns)) * 100),
+                "countries_with_full_data": len(enriched_data.groupby('country_name').size()[enriched_data.groupby('country_name').size() > 300])
+            },
+            "data_source": "CSV Files - Revolutionary Pipeline"
+        }
+    
+    except Exception as e:
+        logger.error(f"Erreur info CSV: {e}")
+        raise HTTPException(status_code=500, detail="Erreur récupération info CSV")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("covid_api:app", host="0.0.0.0", port=8000, reload=True)

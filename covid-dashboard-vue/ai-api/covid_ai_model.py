@@ -131,14 +131,14 @@ class TransformerBlock(nn.Module):
 
 class CovidRevolutionaryTransformer(nn.Module):
     """
-    🚀 MODÈLE RÉVOLUTIONNAIRE: Transformer Hybride pour COVID
+    🚀 MODÈLE RÉVOLUTIONNAIRE OPTIMISÉ: Transformer Hybride pour COVID
     
     Architecture innovante combinant:
     - Transformer pour capturer les dépendances long-terme
     - LSTM pour la temporalité séquentielle 
     - Features statiques (démographie, vaccination)
-    - Multi-output (cas, morts, guérisons)
-    - Prédictions multi-horizons
+    - Multi-output SIMULTANÉ (cas, morts, guérisons) pour TOUS les horizons
+    - ⚡ OPTIMISÉ: Un seul forward pass pour tous les horizons
     """
     
     def __init__(self, 
@@ -156,6 +156,7 @@ class CovidRevolutionaryTransformer(nn.Module):
         self.d_model = d_model
         self.prediction_horizons = prediction_horizons
         self.n_outputs = 4  # confirmed, deaths, recovered, active
+        self.n_horizons = len(prediction_horizons)
         
         # 1. Embedding des séquences temporelles
         self.sequence_embedding = nn.Linear(sequence_features, d_model)
@@ -197,35 +198,34 @@ class CovidRevolutionaryTransformer(nn.Module):
             nn.Dropout(dropout)
         )
         
-        # 6. Têtes de prédiction multi-horizons
-        self.prediction_heads = nn.ModuleDict({
-            f'horizon_{h}': nn.Sequential(
-                nn.Linear(d_model//2, d_model//4),
-                nn.GELU(),
-                nn.Dropout(dropout),
-                nn.Linear(d_model//4, self.n_outputs),
-                nn.ReLU()  # Garantir des prédictions positives
-            ) for h in prediction_horizons
-        })
+        # 🚀 6. OPTIMISATION: Tête unique pour TOUS les horizons simultanément
+        self.prediction_head = nn.Sequential(
+            nn.Linear(d_model//2, d_model//4),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(d_model//4, self.n_outputs * self.n_horizons),  # Tous les horizons d'un coup
+            nn.ReLU()  # Garantir des prédictions positives
+        )
         
         # 7. Couche d'incertitude (pour intervalles de confiance)
         self.uncertainty_head = nn.Sequential(
             nn.Linear(d_model//2, d_model//4),
             nn.GELU(),
-            nn.Linear(d_model//4, self.n_outputs),
+            nn.Linear(d_model//4, self.n_outputs * self.n_horizons),  # Tous les horizons d'un coup
             nn.Softplus()  # Garantir des valeurs positives pour l'écart-type
         )
         
         self.dropout = nn.Dropout(dropout)
         
-        logger.info(f"🧠 Modèle révolutionnaire créé:")
+        logger.info(f"🧠 Modèle révolutionnaire OPTIMISÉ créé:")
         logger.info(f"   - Dimension: {d_model}")
         logger.info(f"   - Couches Transformer: {n_layers}")
         logger.info(f"   - Têtes d'attention: {n_heads}")
         logger.info(f"   - Horizons de prédiction: {prediction_horizons}")
+        logger.info(f"   - 🚀 OPTIMISATION: Forward unique pour tous les horizons")
         logger.info(f"   - Paramètres total: {sum(p.numel() for p in self.parameters()):,}")
     
-    def forward(self, sequences, static_features, target_horizon=1):
+    def forward(self, sequences, static_features, target_horizon=None):
         batch_size, seq_len, _ = sequences.shape
         
         # 1. Embedding des séquences + encodage positionnel
@@ -243,13 +243,8 @@ class CovidRevolutionaryTransformer(nn.Module):
         # 3. LSTM processing
         lstm_out, (h_n, c_n) = self.lstm(transformer_out)
         
-        # 4. Extraction de la représentation finale (moyenne pondérée)
-        # Utiliser l'attention pour pondérer les représentations temporelles
-        final_attention = attention_weights[-1].mean(dim=1)  # Moyenne sur les têtes
-        temporal_representation = torch.sum(
-            lstm_out * final_attention.unsqueeze(-1), 
-            dim=1
-        )
+        # 4. Extraction de la représentation finale (moyenne simple)
+        temporal_representation = lstm_out.mean(dim=1)
         
         # 5. Traitement des features statiques
         static_representation = self.static_processor(static_features)
@@ -258,22 +253,24 @@ class CovidRevolutionaryTransformer(nn.Module):
         fused_representation = torch.cat([temporal_representation, static_representation], dim=-1)
         fused_out = self.fusion_layer(fused_representation)
         
-        # 7. Prédictions multi-horizons
-        predictions = {}
-        for horizon in self.prediction_horizons:
-            if target_horizon == horizon or target_horizon == -1:  # -1 pour toutes les prédictions
-                predictions[f'horizon_{horizon}'] = self.prediction_heads[f'horizon_{horizon}'](fused_out)
+        # 🚀 7. OPTIMISATION: Prédictions pour TOUS les horizons simultanément
+        all_predictions = self.prediction_head(fused_out)  # [batch, n_outputs * n_horizons]
+        all_uncertainty = self.uncertainty_head(fused_out)  # [batch, n_outputs * n_horizons]
         
-        # 8. Estimation d'incertitude
-        uncertainty = self.uncertainty_head(fused_out)
+        # Reshape pour séparer horizons et outputs
+        predictions = all_predictions.view(batch_size, self.n_horizons, self.n_outputs)  # [batch, horizons, outputs]
+        uncertainty = all_uncertainty.view(batch_size, self.n_horizons, self.n_outputs)  # [batch, horizons, outputs]
         
-        if target_horizon == -1:
-            return predictions, uncertainty, attention_weights
-        else:
-            return predictions[f'horizon_{target_horizon}'], uncertainty, attention_weights
+        # Si un horizon spécifique est demandé
+        if target_horizon is not None and target_horizon != -1:
+            horizon_idx = self.prediction_horizons.index(target_horizon)
+            return predictions[:, horizon_idx, :], uncertainty[:, horizon_idx, :], attention_weights
+        
+        # Sinon retourner toutes les prédictions
+        return predictions, uncertainty, attention_weights
 
 class CovidRevolutionaryTrainer:
-    """Entraîneur révolutionnaire pour le modèle Transformer"""
+    """Entraîneur révolutionnaire OPTIMISÉ pour le modèle Transformer"""
     
     def __init__(self, model_config: Dict):
         self.config = model_config
@@ -283,7 +280,7 @@ class CovidRevolutionaryTrainer:
         self.static_scaler = StandardScaler()
         self.target_scaler = RobustScaler()
         
-        logger.info(f"🚀 Trainer initialisé sur {self.device}")
+        logger.info(f"🚀 Trainer OPTIMISÉ initialisé sur {self.device}")
     
     def prepare_revolutionary_dataset(self, enriched_df: pd.DataFrame, 
                                     sequence_length: int = 30) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -427,8 +424,8 @@ class CovidRevolutionaryTrainer:
     
     def train_revolutionary_model(self, train_loader: DataLoader, val_loader: DataLoader,
                                 epochs: int = 100, learning_rate: float = 1e-4) -> Dict:
-        """Entraînement révolutionnaire du modèle"""
-        logger.info("🚀 DÉMARRAGE DE L'ENTRAÎNEMENT RÉVOLUTIONNAIRE")
+        """🚀 Entraînement révolutionnaire OPTIMISÉ du modèle"""
+        logger.info("🚀 DÉMARRAGE DE L'ENTRAÎNEMENT RÉVOLUTIONNAIRE OPTIMISÉ")
         
         # Déterminer les dimensions
         sample_seq, sample_static, sample_targets = next(iter(train_loader))
@@ -479,8 +476,6 @@ class CovidRevolutionaryTrainer:
             # Training
             self.model.train()
             train_loss = 0.0
-            train_predictions = []
-            train_targets = []
             
             for batch_idx, (sequences, static, targets) in enumerate(train_loader):
                 sequences = sequences.to(self.device)
@@ -489,14 +484,14 @@ class CovidRevolutionaryTrainer:
                 
                 optimizer.zero_grad()
                 
-                # Forward pass pour chaque horizon
-                total_loss = 0
-                for horizon_idx, horizon in enumerate([1, 7, 14, 30]):
-                    pred, uncertainty, _ = self.model(sequences, static, target_horizon=horizon)
-                    target_horizon = targets[:, horizon_idx, :]
-                    
-                    loss = combined_loss(pred, target_horizon, uncertainty)
-                    total_loss += loss
+                # 🚀 OPTIMISATION: UN SEUL forward pass pour TOUS les horizons
+                all_predictions, all_uncertainty, _ = self.model(sequences, static, target_horizon=-1)
+                
+                # all_predictions shape: [batch, horizons, outputs] = [batch, 4, 4]
+                # targets shape: [batch, horizons, outputs] = [batch, 4, 4]
+                
+                # Calculer la loss sur tous les horizons simultanément
+                total_loss = combined_loss(all_predictions, targets, all_uncertainty)
                 
                 total_loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
@@ -504,6 +499,10 @@ class CovidRevolutionaryTrainer:
                 scheduler.step()
                 
                 train_loss += total_loss.item()
+                
+                # Log de progression toutes les 100 batches
+                if batch_idx % 100 == 0:
+                    logger.info(f"   Epoch {epoch}, Batch {batch_idx}/{len(train_loader)}, Loss: {total_loss.item():.4f}")
             
             # Validation
             self.model.eval()
@@ -517,30 +516,26 @@ class CovidRevolutionaryTrainer:
                     static = static.to(self.device)
                     targets = targets.to(self.device)
                     
-                    total_val_loss = 0
-                    for horizon_idx, horizon in enumerate([1, 7, 14, 30]):
-                        pred, uncertainty, _ = self.model(sequences, static, target_horizon=horizon)
-                        target_horizon = targets[:, horizon_idx, :]
-                        
-                        loss = combined_loss(pred, target_horizon, uncertainty)
-                        total_val_loss += loss
-                        
-                        if horizon == 7:  # Garder les prédictions à 7 jours pour les métriques
-                            val_predictions.append(pred.cpu().numpy())
-                            val_targets_list.append(target_horizon.cpu().numpy())
+                    # 🚀 OPTIMISATION: UN SEUL forward pass pour validation aussi
+                    all_predictions, all_uncertainty, _ = self.model(sequences, static, target_horizon=-1)
                     
-                    val_loss += total_val_loss.item()
+                    loss = combined_loss(all_predictions, targets, all_uncertainty)
+                    val_loss += loss.item()
+                    
+                    # Garder les prédictions à 7 jours (index 1) pour les métriques
+                    val_predictions.append(all_predictions[:, 1, :].cpu().numpy())  # Horizon 7 jours
+                    val_targets_list.append(targets[:, 1, :].cpu().numpy())
             
             # Calcul des métriques
             train_loss /= len(train_loader)
             val_loss /= len(val_loader)
             
             # Métriques détaillées sur validation
+            val_metrics = {}
             if val_predictions:
                 val_pred_array = np.vstack(val_predictions)
                 val_target_array = np.vstack(val_targets_list)
                 
-                val_metrics = {}
                 for i, metric_name in enumerate(['confirmed', 'deaths', 'recovered', 'active']):
                     mae = mean_absolute_error(val_target_array[:, i], val_pred_array[:, i])
                     mape = mean_absolute_percentage_error(val_target_array[:, i], val_pred_array[:, i])
@@ -560,12 +555,12 @@ class CovidRevolutionaryTrainer:
             # Historique
             history['train_loss'].append(train_loss)
             history['val_loss'].append(val_loss)
-            history['val_metrics'].append(val_metrics if val_predictions else {})
+            history['val_metrics'].append(val_metrics)
             
-            if epoch % 10 == 0:
-                logger.info(f"Epoch {epoch:3d}/{epochs} | Train: {train_loss:.6f} | Val: {val_loss:.6f}")
-                if val_metrics:
-                    logger.info(f"   Val R²: confirmed={val_metrics.get('confirmed_r2', 0):.3f}, deaths={val_metrics.get('deaths_r2', 0):.3f}")
+            # Log des métriques
+            logger.info(f"Epoch {epoch:3d}/{epochs} | Train: {train_loss:.6f} | Val: {val_loss:.6f}")
+            if val_metrics:
+                logger.info(f"   Val R²: confirmed={val_metrics.get('confirmed_r2', 0):.3f}, deaths={val_metrics.get('deaths_r2', 0):.3f}")
             
             # Early stopping
             if patience_counter >= patience:
@@ -575,7 +570,7 @@ class CovidRevolutionaryTrainer:
         # Charger le meilleur modèle
         self.model.load_state_dict(torch.load('models/covid_revolutionary_model.pth'))
         
-        logger.info("🎉 ENTRAÎNEMENT TERMINÉ AVEC SUCCÈS!")
+        logger.info("🎉 ENTRAÎNEMENT OPTIMISÉ TERMINÉ AVEC SUCCÈS!")
         return history
     
     def save_artifacts(self, history: Dict):
@@ -583,8 +578,6 @@ class CovidRevolutionaryTrainer:
         logger.info("💾 Sauvegarde des artefacts...")
         
         os.makedirs('models', exist_ok=True)
-        
-        # Modèle déjà sauvegardé
         
         # Scalers
         joblib.dump(self.sequence_scaler, 'models/revolutionary_sequence_scaler.pkl')
@@ -595,7 +588,7 @@ class CovidRevolutionaryTrainer:
         config = {
             'model_config': self.config,
             'training_history': history,
-            'model_type': 'CovidRevolutionaryTransformer',
+            'model_type': 'CovidRevolutionaryTransformer_OPTIMIZED',
             'prediction_horizons': [1, 7, 14, 30],
             'features': {
                 'sequence_features': self.model.sequence_embedding.in_features,
@@ -603,11 +596,12 @@ class CovidRevolutionaryTrainer:
                 'output_features': self.model.n_outputs
             },
             'training_date': datetime.now().isoformat(),
-            'device': str(self.device)
+            'device': str(self.device),
+            'optimization': 'Single forward pass for all horizons'
         }
         
         with open('models/revolutionary_config.json', 'w') as f:
-            json.dump(config, f, indent=2)
+            json.dump(config, f, indent=2, default=str)
         
         # Visualisations
         self.plot_training_history(history)
@@ -621,7 +615,7 @@ class CovidRevolutionaryTrainer:
         # Loss
         axes[0,0].plot(history['train_loss'], label='Train Loss')
         axes[0,0].plot(history['val_loss'], label='Validation Loss')
-        axes[0,0].set_title('Loss Evolution')
+        axes[0,0].set_title('Loss Evolution (OPTIMIZED)')
         axes[0,0].legend()
         axes[0,0].grid(True)
         
@@ -652,7 +646,7 @@ class CovidRevolutionaryTrainer:
             axes[1,1].grid(True)
         
         plt.tight_layout()
-        plt.savefig('models/training_history.png', dpi=300, bbox_inches='tight')
+        plt.savefig('models/training_history_optimized.png', dpi=300, bbox_inches='tight')
         plt.close()
 
 if __name__ == "__main__":
@@ -684,9 +678,4 @@ if __name__ == "__main__":
     # Sauvegarder
     trainer.save_artifacts(history)
     
-    print("\n🎉 MODÈLE RÉVOLUTIONNAIRE ENTRAÎNÉ ET SAUVEGARDÉ!")
-    print("📁 Fichiers créés:")
-    print("   - models/covid_revolutionary_model.pth")
-    print("   - models/revolutionary_*_scaler.pkl")
-    print("   - models/revolutionary_config.json")
-    print("   - models/training_history.png")
+    print("\n🎉 MODÈLE RÉVOLUTIONNAIRE OPTIMISÉ ENTRAÎNÉ ET SAUVEGARDÉ!")

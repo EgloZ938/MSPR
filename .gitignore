@@ -9,3 +9,4 @@ covid-dashboard-vue/frontend/.vscode
 covid-dashboard-vue/frontend/package-lock.json
 covid-dashboard-vue/__pycache__
 covid-dashboard-vue/structure_table.txt
+covid-dashboard-vue/ai-api/.env

@@ -1,0 +1,57 @@
+{
+  "sequence_length": 30,
+  "model_type": "LSTM INTELLIGENT COVID - MongoDB Base + CSV Enrichment Global",
+  "input_features": [
+    "confirmed",
+    "deaths",
+    "recovered",
+    "active"
+  ],
+  "enriched_features": [
+    "cumulative_vaccinations",
+    "daily_vaccinations",
+    "vaccination_rate",
+    "vaccination_trend",
+    "avg_age",
+    "elderly_ratio",
+    "young_ratio",
+    "gender_death_ratio",
+    "avg_deaths_male",
+    "avg_deaths_female",
+    "month_sin",
+    "month_cos",
+    "day_sin",
+    "day_cos",
+    "month",
+    "quarter",
+    "week_of_year",
+    "is_weekend",
+    "days_since_start",
+    "risk_score",
+    "mortality_rate",
+    "recovery_rate",
+    "active_rate",
+    "active_rate"
+  ],
+  "training_period": "MongoDB 2020-01-22 to 2020-07-27",
+  "enrichment_period": "CSV 2020-2025 (vaccination), 2020-2022 (demographics)",
+  "training_date": "2025-06-26T02:17:33.985499",
+  "device": "cpu",
+  "architecture": {
+    "lstm_layers": 3,
+    "lstm_hidden": 256,
+    "bidirectional": true,
+    "attention_mechanism": true,
+    "batch_normalization": true,
+    "dropout": 0.3
+  },
+  "data_intelligence": {
+    "temporal_cycles": "sin/cos encoding for seasonality",
+    "risk_scoring": "age + vaccination risk calculation",
+    "demographic_weighting": "elderly ratio impact",
+    "vaccination_trends": "future vaccination data integration"
+  },
+  "epochs_trained": 200,
+  "batch_size": 32,
+  "learning_rate": 0.0005
+}

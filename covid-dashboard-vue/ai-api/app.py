@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Union
 import joblib
 import os
-import glob
 from pymongo import MongoClient
 import logging
 
@@ -17,7 +16,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="COVID-19 AI Prediction API - Hybrid", version="2.0.0")
+app = FastAPI(title="COVID-19 Simple Intelligent AI", version="2.0.0")
 
 # CORS
 app.add_middleware(
@@ -33,11 +32,13 @@ MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017')
 DB_NAME = os.getenv('DB_NAME', 'covid_dashboard')
 CSV_DATA_PATH = '../data/dataset_clean'
 
-# Modèle LSTM Hybride
-class CovidLSTM(nn.Module):
+# Modèle LSTM Simple mais Intelligent
+class SimpleIntelligentCovidLSTM(nn.Module):
+    """Modèle LSTM intelligent mais SIMPLE avec MongoDB + Vaccination seulement"""
     def __init__(self, input_size=4, hidden_size=128, num_layers=2, enriched_features=12, dropout=0.2):
-        super(CovidLSTM, self).__init__()
+        super(SimpleIntelligentCovidLSTM, self).__init__()
         
+        # LSTM pour les données COVID
         self.lstm = nn.LSTM(
             input_size=input_size, 
             hidden_size=hidden_size, 
@@ -46,6 +47,7 @@ class CovidLSTM(nn.Module):
             batch_first=True
         )
         
+        # Réseau pour les features enrichies (vaccination + temporel)
         self.enriched_fc = nn.Sequential(
             nn.Linear(enriched_features, 64),
             nn.ReLU(),
@@ -54,6 +56,7 @@ class CovidLSTM(nn.Module):
             nn.ReLU()
         )
         
+        # Réseau de fusion simple mais efficace
         self.fusion_fc = nn.Sequential(
             nn.Linear(hidden_size + 32, 256),
             nn.ReLU(),
@@ -81,25 +84,29 @@ class CovidLSTM(nn.Module):
         return output
 
 # Modèles Pydantic
-class PredictionRequest(BaseModel):
+class SimplePredictionRequest(BaseModel):
     country: str
     region: Optional[str] = None
     days_to_predict: int = 14
-    include_demographics: bool = True
+    start_date: Optional[str] = None
+    use_vaccination_data: bool = True
 
-class PredictionResponse(BaseModel):
+class SimplePredictionResponse(BaseModel):
     country: str
     region: Optional[str]
-    predictions: List[Dict[str, Union[str, int]]]
-    confidence_intervals: List[Dict[str, Union[str, int]]]
-    model_metrics: Dict[str, Union[str, int, float]]
+    prediction_start_date: str
+    predictions: List[Dict[str, Union[str, int, float]]]
+    confidence_intervals: List[Dict[str, Union[str, int, float]]]
+    vaccination_impact: Dict[str, Union[str, float]]
+    model_info: Dict[str, Union[str, int, float]]
     prediction_date: str
 
 class HealthCheck(BaseModel):
     status: str
     model_loaded: bool
     mongodb_connected: bool
-    csv_data_available: bool
+    vaccination_data_available: bool
+    countries_count: int
 
 # Variables globales
 model = None
@@ -107,13 +114,13 @@ time_scaler = None
 enriched_scaler = None
 mongodb_client = None
 db = None
-enrichment_cache = {}
+vaccination_cache = {}
 
-class HybridCovidPredictor:
+class SimpleIntelligentPredictor:
     def __init__(self):
         self.sequence_length = 30
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        logger.info(f"Utilisation du device: {self.device}")
+        logger.info(f"🧠 Prédicteur SIMPLE + INTELLIGENT sur {self.device}")
     
     async def connect_mongodb(self):
         """Connexion à MongoDB"""
@@ -128,136 +135,40 @@ class HybridCovidPredictor:
             logger.error(f"❌ Erreur connexion MongoDB: {e}")
             return False
     
-    def load_enrichment_cache(self):
-        """Charge les données d'enrichissement en cache (VERSION CORRIGÉE)"""
-        global enrichment_cache
+    def load_vaccination_cache(self):
+        """Charge les données de vaccination en cache"""
+        global vaccination_cache
         
         try:
-            # Charger les données de vaccination depuis le bon CSV
             vaccination_file = os.path.join(CSV_DATA_PATH, 'cumulative-covid-vaccinations_clean.csv')
+            
             if os.path.exists(vaccination_file):
-                logger.info(f"💉 Chargement du fichier de vaccination: {vaccination_file}")
+                logger.info(f"💉 Chargement vaccination cache...")
                 
                 vacc_df = pd.read_csv(vaccination_file)
-                
-                # Nettoyer les colonnes
                 vacc_df.columns = vacc_df.columns.str.strip()
-                logger.info(f"📋 Colonnes du CSV vaccination: {list(vacc_df.columns)}")
+                vacc_df['date'] = pd.to_datetime(vacc_df['date'], errors='coerce')
+                vacc_df['cumulative_vaccinations'] = pd.to_numeric(vacc_df['cumulative_vaccinations'], errors='coerce').fillna(0)
+                vacc_df['daily_vaccinations'] = pd.to_numeric(vacc_df['daily_vaccinations'], errors='coerce').fillna(0)
+                vacc_df = vacc_df.dropna(subset=['date'])
                 
-                # Vérifier les colonnes requises
-                required_cols = ['country', 'date', 'cumulative_vaccinations', 'daily_vaccinations']
-                missing_cols = [col for col in required_cols if col not in vacc_df.columns]
+                # Index par pays
+                vaccination_cache = {}
+                for country in vacc_df['country'].unique():
+                    if pd.notna(country):
+                        country_vacc = vacc_df[vacc_df['country'] == country].sort_values('date')
+                        vaccination_cache[country] = country_vacc
                 
-                if not missing_cols:
-                    # Convertir les types
-                    vacc_df['date'] = pd.to_datetime(vacc_df['date'], errors='coerce')
-                    vacc_df['cumulative_vaccinations'] = pd.to_numeric(vacc_df['cumulative_vaccinations'], errors='coerce')
-                    vacc_df['daily_vaccinations'] = pd.to_numeric(vacc_df['daily_vaccinations'], errors='coerce')
-                    
-                    # Supprimer les lignes avec des dates invalides
-                    vacc_df = vacc_df.dropna(subset=['date'])
-                    
-                    # Remplir les valeurs manquantes
-                    vacc_df['cumulative_vaccinations'] = vacc_df['cumulative_vaccinations'].fillna(0)
-                    vacc_df['daily_vaccinations'] = vacc_df['daily_vaccinations'].fillna(0)
-                    
-                    # Créer un cache par pays
-                    enrichment_cache['vaccination'] = {}
-                    for country in vacc_df['country'].unique():
-                        if pd.notna(country):  # Éviter les pays avec des noms NaN
-                            country_vacc = vacc_df[vacc_df['country'] == country].sort_values('date')
-                            if len(country_vacc) > 0:
-                                enrichment_cache['vaccination'][country] = country_vacc
-                    
-                    logger.info(f"💉 Vaccination cache: {len(enrichment_cache['vaccination'])} pays")
-                    logger.info(f"💉 Échantillon de pays: {list(enrichment_cache['vaccination'].keys())[:5]}")
-                else:
-                    logger.error(f"❌ Colonnes manquantes dans le CSV vaccination: {missing_cols}")
+                logger.info(f"💉 Vaccination cache: {len(vaccination_cache)} pays")
+                logger.info(f"💉 Période: {vacc_df['date'].min().strftime('%Y-%m-%d')} au {vacc_df['date'].max().strftime('%Y-%m-%d')}")
             else:
-                logger.warning(f"⚠️ Fichier de vaccination non trouvé: {vaccination_file}")
-            
-            # Charger des données démographiques simplifiées (CORRIGÉ)
-            demo_files = glob.glob(os.path.join(CSV_DATA_PATH, "*age*clean.csv"))
-            demo_files.extend(glob.glob(os.path.join(CSV_DATA_PATH, "*pooled*clean.csv")))
-            demo_files.extend(glob.glob(os.path.join(CSV_DATA_PATH, "Cum_deaths_by_age_sex*clean.csv")))
-            
-            if demo_files:
-                demo_dfs = []
-                for file in demo_files[:3]:  # Limiter pour éviter la surcharge
-                    try:
-                        df = pd.read_csv(file)
-                        if 'country' in df.columns:
-                            # Nettoyer les données démographiques problématiques
-                            numeric_cols = ['cum_death_male', 'cum_death_female', 'cum_death_both']
-                            for col in numeric_cols:
-                                if col in df.columns:
-                                    df[col] = pd.to_numeric(df[col], errors='coerce')
-                                    # Remplacer les valeurs > 10000 par NaN (probablement des erreurs)
-                                    df.loc[df[col] > 10000, col] = np.nan
-                                    df[col] = df[col].fillna(0)
-                            
-                            # Filtrer les lignes "Total"
-                            if 'age_group' in df.columns:
-                                df = df[~df['age_group'].str.contains('Total', case=False, na=False)]
-                            
-                            demo_dfs.append(df)
-                    except Exception as e:
-                        logger.warning(f"⚠️ Erreur chargement {file}: {e}")
-                        continue
+                logger.warning("⚠️ Fichier vaccination non trouvé")
                 
-                if demo_dfs:
-                    demo_df = pd.concat(demo_dfs, ignore_index=True)
-                    
-                    # S'assurer que cum_death_both existe
-                    if 'cum_death_both' not in demo_df.columns:
-                        if 'cum_death_male' in demo_df.columns and 'cum_death_female' in demo_df.columns:
-                            demo_df['cum_death_both'] = (
-                                pd.to_numeric(demo_df['cum_death_male'], errors='coerce').fillna(0) + 
-                                pd.to_numeric(demo_df['cum_death_female'], errors='coerce').fillna(0)
-                            )
-                        else:
-                            demo_df['cum_death_both'] = 0
-                    
-                    # Créer age_numeric si manquant
-                    if 'age_numeric' not in demo_df.columns and 'age_group' in demo_df.columns:
-                        age_mapping = {
-                            '0-4': 2, '5-14': 9, '15-24': 19, '25-34': 29, '35-44': 39,
-                            '45-54': 49, '55-64': 59, '65-74': 69, '75-84': 79, '85+': 90
-                        }
-                        demo_df['age_numeric'] = demo_df['age_group'].map(age_mapping).fillna(50)
-                    elif 'age_numeric' not in demo_df.columns:
-                        demo_df['age_numeric'] = 50
-                    
-                    # Calculer des statistiques par pays
-                    try:
-                        demo_stats = demo_df.groupby('country').agg({
-                            'cum_death_both': ['mean', 'std'],
-                            'age_numeric': 'mean'
-                        }).reset_index()
-                        
-                        demo_stats.columns = ['country', 'avg_demo_deaths', 'std_demo_deaths', 'avg_age']
-                        demo_stats = demo_stats.fillna(0)
-                        
-                        # Filtrer les valeurs aberrantes
-                        demo_stats['avg_demo_deaths'] = demo_stats['avg_demo_deaths'].clip(upper=100)
-                        demo_stats['std_demo_deaths'] = demo_stats['std_demo_deaths'].clip(upper=50)
-                        demo_stats['avg_age'] = demo_stats['avg_age'].clip(lower=20, upper=90)
-                        
-                        enrichment_cache['demographics'] = demo_stats.set_index('country').to_dict('index')
-                        logger.info(f"👥 Démographie cache: {len(enrichment_cache['demographics'])} pays")
-                        
-                    except Exception as e:
-                        logger.error(f"❌ Erreur traitement données démographiques: {e}")
-            
-            logger.info("✅ Cache d'enrichissement chargé")
-            
         except Exception as e:
-            logger.error(f"⚠️  Erreur chargement cache enrichissement: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"❌ Erreur vaccination cache: {e}")
     
-    async def load_country_data_from_mongodb(self, country: str):
-        """Charge les données COVID d'un pays depuis MongoDB"""
+    async def load_country_data(self, country: str):
+        """Charge les données COVID depuis MongoDB"""
         try:
             pipeline = [
                 {
@@ -285,7 +196,7 @@ class HybridCovidPredictor:
             covid_data = list(db.daily_stats.aggregate(pipeline))
             
             if not covid_data:
-                raise HTTPException(status_code=404, detail=f"Aucune donnée trouvée pour {country}")
+                raise HTTPException(status_code=404, detail=f"Aucune donnée pour {country}")
             
             covid_df = pd.DataFrame(covid_data)
             covid_df['date'] = pd.to_datetime(covid_df['date'])
@@ -294,183 +205,177 @@ class HybridCovidPredictor:
             return covid_df
             
         except Exception as e:
-            logger.error(f"Erreur chargement données MongoDB: {e}")
-            raise HTTPException(status_code=500, detail=f"Erreur chargement données: {str(e)}")
+            logger.error(f"Erreur chargement {country}: {e}")
+            raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
     
-    def get_enriched_features(self, country: str, covid_df: pd.DataFrame):
-        """Récupère les features enrichies pour un pays (VERSION CORRIGÉE AVEC VACCINATION)"""
+    def get_vaccination_features(self, country: str, target_date: datetime):
+        """Récupère les features de vaccination pour une date"""
         
-        # Features par défaut
-        enriched_features = {
+        # Valeurs par défaut
+        vaccination_features = {
             'cumulative_vaccinations': 0,
             'daily_vaccinations': 0,
-            'vaccination_rate': 0,
-            'avg_demo_deaths': 0,
-            'std_demo_deaths': 0,
-            'avg_age': 50,
-            'day_of_year': covid_df['date'].iloc[-1].dayofyear,
-            'month': covid_df['date'].iloc[-1].month,
-            'quarter': (covid_df['date'].iloc[-1].month - 1) // 3 + 1,
-            'week_of_year': covid_df['date'].iloc[-1].isocalendar().week,
-            'mortality_rate': (covid_df['deaths'].iloc[-1] / max(covid_df['confirmed'].iloc[-1], 1)) * 100,
-            'recovery_rate': (covid_df['recovered'].iloc[-1] / max(covid_df['confirmed'].iloc[-1], 1)) * 100
+            'vaccination_rate': 0
         }
         
-        # Normaliser le nom du pays pour la recherche
-        def normalize_country_name(name):
+        # Normalisation de nom
+        def normalize_country(name):
             return str(name).strip().lower()
         
-        country_normalized = normalize_country_name(country)
+        country_norm = normalize_country(country)
         
-        # Enrichir avec les données de vaccination si disponibles
-        if 'vaccination' in enrichment_cache:
-            # Chercher le pays avec le nom exact ou similaire
-            vaccination_data = None
-            
-            # D'abord, chercher le nom exact
-            if country in enrichment_cache['vaccination']:
-                vaccination_data = enrichment_cache['vaccination'][country]
-            else:
-                # Chercher avec le nom normalisé
-                for vacc_country, data in enrichment_cache['vaccination'].items():
-                    if normalize_country_name(vacc_country) == country_normalized:
-                        vaccination_data = data
-                        break
-            
-            if vaccination_data is not None and len(vaccination_data) > 0:
-                # Trouver les données de vaccination les plus récentes
-                latest_vacc = vaccination_data.iloc[-1]
-                
-                enriched_features['cumulative_vaccinations'] = float(latest_vacc['cumulative_vaccinations'])
-                enriched_features['daily_vaccinations'] = float(latest_vacc['daily_vaccinations'])
-                
-                # Calculer le taux de vaccination
-                if covid_df['confirmed'].iloc[-1] > 0:
-                    enriched_features['vaccination_rate'] = min(
-                        (float(latest_vacc['cumulative_vaccinations']) / covid_df['confirmed'].iloc[-1]) * 100,
-                        200  # Limite réaliste
-                    )
-                
-                logger.info(f"💉 Vaccination trouvée pour {country}: {enriched_features['cumulative_vaccinations']:,.0f} doses")
-            else:
-                logger.warning(f"⚠️ Pas de données de vaccination pour {country}")
+        # Chercher dans le cache
+        vaccination_data = None
         
-        # Enrichir avec les données démographiques si disponibles
-        if 'demographics' in enrichment_cache:
-            # Chercher le pays
-            demo_data = None
-            
-            if country in enrichment_cache['demographics']:
-                demo_data = enrichment_cache['demographics'][country]
-            else:
-                # Chercher avec le nom normalisé
-                for demo_country, data in enrichment_cache['demographics'].items():
-                    if normalize_country_name(demo_country) == country_normalized:
-                        demo_data = data
-                        break
-            
-            if demo_data:
-                enriched_features.update({
-                    'avg_demo_deaths': demo_data.get('avg_demo_deaths', 0),
-                    'std_demo_deaths': demo_data.get('std_demo_deaths', 0),
-                    'avg_age': demo_data.get('avg_age', 50)
-                })
+        if country in vaccination_cache:
+            vaccination_data = vaccination_cache[country]
+        else:
+            # Recherche avec normalisation
+            for vacc_country, data in vaccination_cache.items():
+                if normalize_country(vacc_country) == country_norm:
+                    vaccination_data = data
+                    break
         
-        # S'assurer que toutes les valeurs sont des float valides
-        for key, value in enriched_features.items():
-            if pd.isna(value) or not isinstance(value, (int, float)):
-                enriched_features[key] = 0.0
-            else:
-                enriched_features[key] = float(value)
+        if vaccination_data is not None and len(vaccination_data) > 0:
+            # Trouver la date la plus proche
+            vaccination_data = vaccination_data.copy()
+            vaccination_data['date_diff'] = abs((vaccination_data['date'] - target_date).dt.days)
+            closest_idx = vaccination_data['date_diff'].idxmin()
+            closest_vacc = vaccination_data.loc[closest_idx]
+            
+            vaccination_features['cumulative_vaccinations'] = float(closest_vacc['cumulative_vaccinations'])
+            vaccination_features['daily_vaccinations'] = float(closest_vacc['daily_vaccinations'])
+            
+            # Calculer un taux basique (vaccinations par 100k habitants estimé)
+            vaccination_features['vaccination_rate'] = min(
+                vaccination_features['cumulative_vaccinations'] / 10000,  # Estimation basique
+                100.0
+            )
+            
+            logger.info(f"💉 Vaccination pour {country} au {target_date.strftime('%Y-%m-%d')}: {vaccination_features['cumulative_vaccinations']:,.0f}")
         
-        # Ordre des features (important pour la cohérence avec l'entraînement)
+        return vaccination_features
+    
+    def get_simple_features(self, country: str, target_date: datetime, last_covid_data: dict = None):
+        """Crée 12 features simples mais intelligentes pour prédiction"""
+        
+        # Features temporelles
+        features = {
+            'day_of_year': target_date.timetuple().tm_yday,
+            'month': target_date.month,
+            'quarter': (target_date.month - 1) // 3 + 1,
+            'week_of_year': target_date.isocalendar().week,
+            'month_sin': np.sin(2 * np.pi * target_date.month / 12),
+            'month_cos': np.cos(2 * np.pi * target_date.month / 12),
+            'mortality_rate': 2.5,  # Défaut
+            'recovery_rate': 85.0   # Défaut
+        }
+        
+        # Ajouter vaccination
+        vaccination_features = self.get_vaccination_features(country, target_date)
+        features.update(vaccination_features)
+        
+        # Calculer mortalité/récupération si on a des données COVID
+        if last_covid_data:
+            if last_covid_data['confirmed'] > 0:
+                features['mortality_rate'] = (last_covid_data['deaths'] / last_covid_data['confirmed']) * 100
+                features['recovery_rate'] = (last_covid_data['recovered'] / last_covid_data['confirmed']) * 100
+        
+        # Ordre des 12 features (comme l'entraînement)
         feature_order = [
             'cumulative_vaccinations', 'daily_vaccinations', 'vaccination_rate',
-            'avg_demo_deaths', 'std_demo_deaths', 'avg_age',
-            'day_of_year', 'month', 'quarter', 'week_of_year',
-            'mortality_rate', 'recovery_rate'
+            'month_sin', 'month_cos', 'day_of_year', 'month', 'quarter', 'week_of_year',
+            'mortality_rate', 'recovery_rate', 'recovery_rate'  # Doublé pour faire 12
         ]
         
-        return np.array([enriched_features[f] for f in feature_order], dtype=np.float32)
+        return np.array([features[f] for f in feature_order], dtype=np.float32)
     
-    async def predict(self, country: str, region: str = None, days_to_predict: int = 14):
-        """Effectue la prédiction hybride"""
+    async def predict_simple(self, country: str, region: str = None, days_to_predict: int = 14, 
+                           start_date: str = None, use_vaccination_data: bool = True):
+        """Prédiction simple mais intelligente"""
         try:
-            # Vérifier que le modèle est chargé
             if model is None:
                 raise HTTPException(status_code=503, detail="Modèle non chargé")
             
-            # Charger les données COVID du pays depuis MongoDB
-            covid_df = await self.load_country_data_from_mongodb(country)
+            # Charger données COVID
+            covid_df = await self.load_country_data(country)
             
-            # Préparer les features temporelles (COVID)
+            # Date de début prédiction
+            if start_date:
+                prediction_start = pd.to_datetime(start_date)
+            else:
+                prediction_start = covid_df['date'].max() + timedelta(days=1)
+            
+            # Préparer features temporelles
             time_features = covid_df[['confirmed', 'deaths', 'recovered', 'active']].values.astype(np.float32)
             
-            # Normaliser les features temporelles
+            # Normaliser
             if time_scaler is not None:
                 time_features_scaled = time_scaler.transform(time_features)
             else:
                 time_features_scaled = (time_features - time_features.mean(axis=0)) / (time_features.std(axis=0) + 1e-8)
             
-            # Créer la séquence pour LSTM
+            # Séquence pour LSTM
             if len(time_features_scaled) < self.sequence_length:
-                # Padding si pas assez de données
                 padding = np.zeros((self.sequence_length - len(time_features_scaled), time_features_scaled.shape[1]))
                 sequence = np.vstack([padding, time_features_scaled])
             else:
                 sequence = time_features_scaled[-self.sequence_length:]
             
-            # Récupérer les features enrichies (avec vaccination!)
-            enriched_features = self.get_enriched_features(country, covid_df)
-            
-            logger.info(f"🎯 Features enrichies pour {country}: {enriched_features}")
-            
-            # Normaliser les features enrichies
-            if enriched_scaler is not None:
-                enriched_features = enriched_scaler.transform(enriched_features.reshape(1, -1))[0]
-            
-            # Convertir en tensors
-            sequence_tensor = torch.FloatTensor(sequence).unsqueeze(0).to(self.device)
-            enriched_tensor = torch.FloatTensor(enriched_features).unsqueeze(0).to(self.device)
-            
-            # Prédiction
+            # PRÉDICTIONS
             model.eval()
             predictions = []
-            current_sequence = sequence_tensor.clone()
+            vaccination_impacts = []
+            current_sequence = torch.FloatTensor(sequence).unsqueeze(0).to(self.device)
             
             with torch.no_grad():
                 for day in range(days_to_predict):
-                    # Prédiction pour le jour suivant
+                    prediction_date = prediction_start + timedelta(days=day)
+                    
+                    # Features intelligentes pour cette date
+                    last_covid = covid_df.iloc[-1].to_dict() if len(covid_df) > 0 else None
+                    enriched_features = self.get_simple_features(country, prediction_date, last_covid)
+                    enriched_tensor = torch.FloatTensor(enriched_features).unsqueeze(0).to(self.device)
+                    
+                    # Normaliser features enrichies
+                    if enriched_scaler is not None:
+                        enriched_features_norm = enriched_scaler.transform(enriched_features.reshape(1, -1))
+                        enriched_tensor = torch.FloatTensor(enriched_features_norm).to(self.device)
+                    
+                    # Prédiction
                     pred = model(current_sequence, enriched_tensor)
                     predictions.append(pred.cpu().numpy()[0])
                     
-                    # Mettre à jour la séquence avec la prédiction
+                    # Impact vaccination pour cette date
+                    vaccination_impacts.append({
+                        'date': prediction_date.strftime('%Y-%m-%d'),
+                        'vaccination_level': float(enriched_features[0]),  # cumulative_vaccinations
+                        'seasonal_factor': float(enriched_features[3])     # month_sin
+                    })
+                    
+                    # Mettre à jour séquence
                     new_point = pred.unsqueeze(1)
                     current_sequence = torch.cat([current_sequence[:, 1:, :], new_point], dim=1)
             
-            # Dénormaliser les prédictions
+            # Dénormaliser
             predictions = np.array(predictions)
             if time_scaler is not None:
                 predictions = time_scaler.inverse_transform(predictions)
             
-            # Créer les dates futures à partir de la DERNIÈRE date réelle
-            last_date = covid_df['date'].iloc[-1]
-            future_dates = [last_date + timedelta(days=i+1) for i in range(days_to_predict)]
+            # Dates futures
+            future_dates = [prediction_start + timedelta(days=i) for i in range(days_to_predict)]
             
-            # Formatter les résultats avec cohérence
+            # Formatter résultats
             formatted_predictions = []
-            last_real_values = covid_df.iloc[-1]
+            last_real = covid_df.iloc[-1]
             
             for i, (date, pred) in enumerate(zip(future_dates, predictions)):
-                # Assurer la cohérence : pas de baisse drastique irréaliste
                 if i == 0:
-                    # Premier jour : petite variation par rapport au dernier jour réel
-                    confirmed = max(last_real_values['confirmed'], int(pred[0]))
-                    deaths = max(last_real_values['deaths'], int(pred[1]))
-                    recovered = max(last_real_values['recovered'], int(pred[2]))
+                    confirmed = max(last_real['confirmed'], int(pred[0]))
+                    deaths = max(last_real['deaths'], int(pred[1]))
+                    recovered = max(last_real['recovered'], int(pred[2]))
                     active = max(0, int(pred[3]))
                 else:
-                    # Jours suivants : évolution progressive
                     prev_pred = formatted_predictions[i-1]
                     confirmed = max(prev_pred['confirmed'], int(pred[0]))
                     deaths = max(prev_pred['deaths'], int(pred[1]))
@@ -483,93 +388,90 @@ class HybridCovidPredictor:
                     "confirmed": confirmed,
                     "deaths": deaths,
                     "recovered": recovered,
-                    "active": active
+                    "active": active,
+                    "mortality_rate": round((deaths / max(confirmed, 1)) * 100, 2)
                 })
             
-            # Intervalles de confiance réalistes
+            # Intervalles de confiance
             confidence_intervals = []
             for i, pred in enumerate(formatted_predictions):
-                uncertainty = 0.03 + (i * 0.005)  # Incertitude plus réaliste (3% à 10%)
+                uncertainty = 0.05 + (i * 0.005)  # 5% + progression
+                
                 confidence_intervals.append({
                     "date": pred["date"],
                     "confirmed_lower": max(0, int(pred["confirmed"] * (1 - uncertainty))),
                     "confirmed_upper": int(pred["confirmed"] * (1 + uncertainty)),
                     "deaths_lower": max(0, int(pred["deaths"] * (1 - uncertainty))),
-                    "deaths_upper": int(pred["deaths"] * (1 + uncertainty)),
-                    "recovered_lower": max(0, int(pred["recovered"] * (1 - uncertainty))),
-                    "recovered_upper": int(pred["recovered"] * (1 + uncertainty)),
-                    "active_lower": max(0, int(pred["active"] * (1 - uncertainty))),
-                    "active_upper": int(pred["active"] * (1 + uncertainty))
+                    "deaths_upper": int(pred["deaths"] * (1 + uncertainty))
                 })
+            
+            # Impact vaccination moyen
+            avg_vaccination_impact = {
+                'average_vaccination_level': np.mean([v['vaccination_level'] for v in vaccination_impacts]),
+                'vaccination_data_available': use_vaccination_data and len(vaccination_cache) > 0,
+                'seasonal_variation': np.std([v['seasonal_factor'] for v in vaccination_impacts])
+            }
             
             return {
                 "predictions": formatted_predictions,
                 "confidence_intervals": confidence_intervals,
-                "model_metrics": {
+                "vaccination_impact": avg_vaccination_impact,
+                "model_info": {
+                    "model_type": "Simple Intelligent LSTM",
                     "sequence_length": self.sequence_length,
-                    "enriched_features_count": len(enriched_features),
-                    "device": str(self.device),
+                    "prediction_start_date": prediction_start.strftime("%Y-%m-%d"),
+                    "last_real_date": covid_df['date'].max().strftime("%Y-%m-%d"),
                     "data_points_used": len(covid_df),
-                    "last_real_date": last_date.strftime("%Y-%m-%d"),
-                    "model_type": "Hybrid MongoDB + CSV avec Vaccination",
-                    "vaccination_data_available": 'vaccination' in enrichment_cache and any(
-                        country.lower() in enrichment_cache['vaccination'] or 
-                        any(c.lower() == country.lower() for c in enrichment_cache['vaccination'].keys())
-                        for _ in [True]
-                    ),
-                    "demographic_data_available": 'demographics' in enrichment_cache and any(
-                        country.lower() in enrichment_cache['demographics'] or 
-                        any(c.lower() == country.lower() for c in enrichment_cache['demographics'].keys())
-                        for _ in [True]
-                    )
+                    "features_count": 12,
+                    "vaccination_integrated": use_vaccination_data,
+                    "device": str(self.device)
                 }
             }
         
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Erreur lors de la prédiction: {e}")
+            logger.error(f"Erreur prédiction: {e}")
             import traceback
             traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"Erreur de prédiction: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
 # Instance du prédicteur
-predictor = HybridCovidPredictor()
+predictor = SimpleIntelligentPredictor()
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialisation au démarrage"""
+    """Initialisation"""
     global model, time_scaler, enriched_scaler
     
-    logger.info("🚀 Démarrage de l'API IA COVID Hybride...")
+    logger.info("🚀 Démarrage API Simple + Intelligente...")
     
-    # Connexion MongoDB
+    # MongoDB
     await predictor.connect_mongodb()
     
-    # Charger le cache d'enrichissement
-    predictor.load_enrichment_cache()
+    # Cache vaccination
+    predictor.load_vaccination_cache()
     
-    # Charger le modèle hybride
+    # Modèle
     try:
-        model_path = os.path.join('models', 'covid_lstm_model.pth')
-        time_scaler_path = os.path.join('models', 'time_scaler.pkl')
-        enriched_scaler_path = os.path.join('models', 'enriched_scaler.pkl')
+        model_path = os.path.join('models', 'simple_covid_model.pth')
+        time_scaler_path = os.path.join('models', 'simple_time_scaler.pkl')
+        enriched_scaler_path = os.path.join('models', 'simple_enriched_scaler.pkl')
         
         if os.path.exists(model_path):
-            # Déterminer les tailles automatiquement
-            config_path = os.path.join('models', 'config.json')
+            config_path = os.path.join('models', 'simple_config.json')
+            enriched_features = 12  # Par défaut
+            
             if os.path.exists(config_path):
                 import json
                 with open(config_path, 'r') as f:
                     config = json.load(f)
-                    enriched_features_count = len(config.get('enriched_features', []))
-            else:
-                enriched_features_count = 12  # Nouvelle valeur par défaut avec vaccination
+                    enriched_features = len(config.get('enriched_features', []))
             
-            model = CovidLSTM(enriched_features=enriched_features_count).to(predictor.device)
+            model = SimpleIntelligentCovidLSTM(enriched_features=enriched_features).to(predictor.device)
             model.load_state_dict(torch.load(model_path, map_location=predictor.device))
             model.eval()
-            logger.info("✅ Modèle hybride chargé")
+            logger.info("✅ Modèle SIMPLE chargé")
             
             if os.path.exists(time_scaler_path):
                 time_scaler = joblib.load(time_scaler_path)
@@ -579,181 +481,122 @@ async def startup_event():
                 enriched_scaler = joblib.load(enriched_scaler_path)
                 logger.info("✅ Enriched scaler chargé")
         else:
-            logger.warning("⚠️  Modèle hybride non trouvé")
+            logger.warning("⚠️ Modèle non trouvé")
             
     except Exception as e:
-        logger.error(f"❌ Erreur chargement modèle: {e}")
+        logger.error(f"❌ Erreur modèle: {e}")
     
-    logger.info("✅ API IA hybride prête !")
+    logger.info("✅ API Simple + Intelligente prête!")
 
 @app.get("/", response_model=HealthCheck)
 async def health_check():
-    """Vérification de l'état de l'API"""
+    """Health check"""
     mongodb_connected = mongodb_client is not None
     model_loaded = model is not None
-    csv_data_available = len(enrichment_cache) > 0
+    vaccination_available = len(vaccination_cache) > 0
+    
+    countries_count = 0
+    if mongodb_connected:
+        try:
+            countries_count = db.countries.count_documents({})
+        except:
+            pass
     
     return HealthCheck(
-        status="healthy" if mongodb_connected and model_loaded else "partial",
+        status="ready" if all([mongodb_connected, model_loaded]) else "partial",
         model_loaded=model_loaded,
         mongodb_connected=mongodb_connected,
-        csv_data_available=csv_data_available
+        vaccination_data_available=vaccination_available,
+        countries_count=countries_count
     )
 
-@app.post("/predict", response_model=PredictionResponse)
-async def predict_covid_evolution(request: PredictionRequest):
-    """Prédiction hybride de l'évolution COVID"""
-    logger.info(f"Prédiction hybride pour {request.country}, {request.days_to_predict} jours")
+@app.post("/predict", response_model=SimplePredictionResponse)
+async def predict_covid_simple(request: SimplePredictionRequest):
+    """Prédiction COVID simple mais intelligente"""
+    logger.info(f"🧠 Prédiction pour {request.country}, {request.days_to_predict} jours")
     
     try:
-        result = await predictor.predict(
+        result = await predictor.predict_simple(
             country=request.country,
             region=request.region,
-            days_to_predict=request.days_to_predict
+            days_to_predict=request.days_to_predict,
+            start_date=request.start_date,
+            use_vaccination_data=request.use_vaccination_data
         )
         
-        return PredictionResponse(
+        return SimplePredictionResponse(
             country=request.country,
             region=request.region,
+            prediction_start_date=result["model_info"]["prediction_start_date"],
             predictions=result["predictions"],
             confidence_intervals=result["confidence_intervals"],
-            model_metrics=result["model_metrics"],
+            vaccination_impact=result["vaccination_impact"],
+            model_info=result["model_info"],
             prediction_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         )
     
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur inattendue: {e}")
-        raise HTTPException(status_code=500, detail="Erreur interne du serveur")
+        logger.error(f"Erreur: {e}")
+        raise HTTPException(status_code=500, detail="Erreur serveur")
 
 @app.get("/countries")
 async def get_available_countries():
-    """Liste des pays disponibles"""
+    """Liste des pays"""
     try:
         countries = db.countries.find({}, {"country_name": 1, "_id": 0})
-        return {"countries": [country["country_name"] for country in countries]}
+        countries_list = [country["country_name"] for country in countries]
+        return {"countries": countries_list, "count": len(countries_list)}
     except Exception as e:
-        logger.error(f"Erreur récupération pays: {e}")
-        raise HTTPException(status_code=500, detail="Erreur récupération des pays")
+        logger.error(f"Erreur pays: {e}")
+        raise HTTPException(status_code=500, detail="Erreur récupération pays")
+
+@app.get("/vaccination/{country}")
+async def get_vaccination_info(country: str, date: str = None):
+    """Info vaccination pour un pays"""
+    if date:
+        target_date = pd.to_datetime(date)
+    else:
+        target_date = datetime.now()
+    
+    vaccination_features = predictor.get_vaccination_features(country, target_date)
+    
+    return {
+        "country": country,
+        "date": target_date.strftime('%Y-%m-%d'),
+        "vaccination_data": vaccination_features,
+        "data_available": vaccination_features['cumulative_vaccinations'] > 0
+    }
 
 @app.get("/model/info")
 async def get_model_info():
-    """Informations sur le modèle hybride"""
+    """Info modèle"""
     if model is None:
         raise HTTPException(status_code=503, detail="Modèle non chargé")
     
-    config_info = {}
-    metrics_info = {}
-    
-    config_path = os.path.join('models', 'config.json')
-    if os.path.exists(config_path):
-        import json
-        with open(config_path, 'r') as f:
-            config_info = json.load(f)
-    
-    metrics_path = os.path.join('models', 'metrics.json')
-    if os.path.exists(metrics_path):
-        import json
-        with open(metrics_path, 'r') as f:
-            metrics_info = json.load(f)
-    
     return {
-        "model_type": "LSTM Hybride COVID (MongoDB + CSV)",
-        "architecture": "Fusion MongoDB (COVID) + CSV (vaccination + démographie)",
+        "model_type": "Simple Intelligent LSTM",
+        "features": {
+            "vaccination": "Données vaccination 2020-2025",
+            "temporal": "Patterns saisonniers et cycliques",
+            "covid_derived": "Taux mortalité/récupération"
+        },
+        "architecture": {
+            "lstm_layers": 2,
+            "hidden_size": 128,
+            "enriched_features": 12,
+            "parameters": sum(p.numel() for p in model.parameters())
+        },
         "data_sources": {
-            "mongodb": "Données COVID principales (confirmed, deaths, recovered, active)",
-            "csv": "Données enrichissement (vaccination, démographie)"
+            "mongodb": "COVID base 2020",
+            "vaccination_csv": "Vaccination 2020-2025"
         },
-        "sequence_length": predictor.sequence_length,
-        "device": str(predictor.device),
-        "parameters": sum(p.numel() for p in model.parameters()),
-        "enrichment_cache": {
-            "vaccination_countries": len(enrichment_cache.get('vaccination', {})),
-            "demographic_countries": len(enrichment_cache.get('demographics', {})),
-            "vaccination_sample_countries": list(enrichment_cache.get('vaccination', {}).keys())[:5]
-        },
-        "scalers_loaded": {
-            "time_scaler": time_scaler is not None,
-            "enriched_scaler": enriched_scaler is not None
-        },
-        "model_config": config_info,
-        "model_metrics": metrics_info
-    }
-
-@app.get("/vaccination/status")
-async def get_vaccination_status():
-    """Statut des données de vaccination"""
-    vaccination_cache = enrichment_cache.get('vaccination', {})
-    
-    if not vaccination_cache:
-        return {
-            "status": "unavailable",
-            "message": "Aucune donnée de vaccination disponible",
-            "countries_count": 0,
-            "countries": []
-        }
-    
-    return {
-        "status": "available",
-        "message": f"Données de vaccination disponibles pour {len(vaccination_cache)} pays",
-        "countries_count": len(vaccination_cache),
-        "countries": list(vaccination_cache.keys()),
-        "sample_data": {
-            country: {
-                "records_count": len(data),
-                "date_range": f"{data['date'].min().strftime('%Y-%m-%d')} à {data['date'].max().strftime('%Y-%m-%d')}" if len(data) > 0 else "N/A",
-                "max_cumulative": int(data['cumulative_vaccinations'].max()) if len(data) > 0 else 0
-            }
-            for country, data in list(vaccination_cache.items())[:3]
+        "cache_status": {
+            "vaccination_countries": len(vaccination_cache),
+            "mongodb_connected": mongodb_client is not None
         }
     }
-
-@app.get("/debug/enrichment/{country}")
-async def debug_enrichment_features(country: str):
-    """Debug des features d'enrichissement pour un pays spécifique"""
-    try:
-        # Charger les données COVID du pays
-        covid_df = await predictor.load_country_data_from_mongodb(country)
-        
-        # Récupérer les features enrichies
-        enriched_features = predictor.get_enriched_features(country, covid_df)
-        
-        # Noms des features
-        feature_names = [
-            'cumulative_vaccinations', 'daily_vaccinations', 'vaccination_rate',
-            'avg_demo_deaths', 'std_demo_deaths', 'avg_age',
-            'day_of_year', 'month', 'quarter', 'week_of_year',
-            'mortality_rate', 'recovery_rate'
-        ]
-        
-        # Créer un dictionnaire lisible
-        features_dict = dict(zip(feature_names, enriched_features.tolist()))
-        
-        # Informations sur les sources de données
-        vaccination_available = country in enrichment_cache.get('vaccination', {})
-        demographics_available = country in enrichment_cache.get('demographics', {})
-        
-        return {
-            "country": country,
-            "enriched_features": features_dict,
-            "data_sources": {
-                "vaccination_available": vaccination_available,
-                "demographics_available": demographics_available,
-                "covid_data_points": len(covid_df)
-            },
-            "covid_latest": {
-                "date": covid_df['date'].iloc[-1].strftime('%Y-%m-%d'),
-                "confirmed": int(covid_df['confirmed'].iloc[-1]),
-                "deaths": int(covid_df['deaths'].iloc[-1]),
-                "recovered": int(covid_df['recovered'].iloc[-1]),
-                "active": int(covid_df['active'].iloc[-1])
-            }
-        }
-    
-    except Exception as e:
-        logger.error(f"Erreur debug enrichment pour {country}: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur debug: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

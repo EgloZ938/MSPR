@@ -1,0 +1,257 @@
+Year,Dataset_Type,Source_File,Countries,Total population (thousands),Birth rate,Mortality rate,Life expectancy,Infant mortality rate,Number of children per woman,Growth rate,Share of people aged 65 and over (%)
+2025,Regional,all-countries-data-ined-institut-national-d-etudes-demographiques(1).xls,Eastern Africa,513486.0,31.812,6.279,66.014,34.3366,3.9594,24.99,3.05
+2025,Regional,all-countries-data-ined-institut-national-d-etudes-demographiques(1).xls,Middle Africa,219525.0,38.521,8.049,62.3576,48.8338,5.3672,29.64,2.918
+2025,Regional,all-countries-data-ined-institut-national-d-etudes-demographiques(1).xls,Northern Africa,276302.0,21.247,5.594,72.4532,19.8602,2.8781,16.16,5.834
+2025,Regional,all-countries-data-ined-institut-national-d-etudes-demographiques(1).xls,Southern Africa,74021.8,18.917,9.03,66.2942,24.3083,2.2675,11.66,6.52
+2025,Regional,all-countries-data-ined-institut-national-d-etudes-demographiques(1).xls,Western Africa,466533.0,32.19,9.642,58.6221,58.7221,4.271,22.15,3.068
+2025,Regional,all-countries-data-ined-institut-national-d-etudes-demographiques(1).xls,AFRICA,1549870.0,30.377,7.551,64.2085,42.6044,3.9525,22.58,3.699
+2034,Southeast_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(10).xls,Brunei Darussalam,466.338,12.999,5.446,75.6685,7.5493,1.7102,7.53,7.238
+2034,Southeast_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(10).xls,Cambodia,17848.0,19.869,6.511,70.9695,18.1401,2.5138,11.59,6.377
+2034,Southeast_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(10).xls,Indonesia,285721.0,15.543,7.711,71.4377,16.1077,2.0959,7.69,7.543
+2034,Southeast_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(10).xls,Lao People's Democratic Republic,7873.05,20.497,6.169,69.4728,29.0194,2.3612,12.98,4.808
+2034,Southeast_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(10).xls,Malaysia,35977.8,12.223,5.361,76.987,4.9059,1.5301,11.49,8.033
+2034,Southeast_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(10).xls,Myanmar,54850.6,16.195,9.239,67.302,32.439,2.0761,6.23,7.522
+2034,Southeast_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(10).xls,Philippines,116787.0,15.804,6.465,70.0671,19.4214,1.876,8.06,5.724
+2034,Southeast_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(10).xls,Singapore,5870.75,8.49,5.087,83.9981,1.7237,0.963,6.28,14.211
+2034,Southeast_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(10).xls,Thailand,71619.9,7.992,9.129,76.8247,7.771,1.1945,-0.75,16.017
+2034,Southeast_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(10).xls,Timor-Leste,1418.52,21.602,7.16,68.1299,34.9878,2.5614,12.64,5.229
+2034,Southeast_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(10).xls,Viet Nam,101599.0,13.075,6.726,74.8813,14.3347,1.8783,5.88,9.495
+2034,Southeast_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(10).xls,South-eastern Asia,700032.0,14.454,7.432,72.4667,17.2122,1.9066,6.86,8.404
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Armenia,2952.36,11.833,9.372,76.0123,8.8014,1.7135,-7.37,14.443
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Azerbaijan,10397.7,11.55,6.745,74.7322,13.7226,1.6645,5.64,9.168
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Bahrain,1643.34,11.926,2.221,81.5792,5.0625,1.7842,20.74,4.016
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Cyprus,1370.76,10.179,7.039,81.9911,2.4974,1.3689,8.79,14.932
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Georgia,3806.67,11.057,11.829,74.8164,6.4499,1.7868,-0.44,15.991
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Iraq,47020.8,25.256,4.194,72.5339,18.3114,3.1736,21.04,3.449
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Israel,9517.18,18.008,5.564,82.7736,2.9076,2.7532,13.65,12.692
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Jordan,11520.7,20.142,3.214,78.1311,11.1304,2.5726,-9.4,4.754
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Kuwait,5026.08,9.7,1.814,80.7791,6.2283,1.4981,16.4,3.175
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Lebanon,5849.42,15.82,6.109,78.0838,14.9268,2.2079,7.96,10.443
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Oman,5494.7,16.403,1.881,80.4512,8.0208,2.4788,35.22,2.687
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Palestine,5589.63,25.921,4.189,73.1011,17.1104,3.1875,17.59,3.852
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Qatar,3115.89,9.607,1.037,82.6797,5.6086,1.7027,20.22,1.701
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Saudi Arabia,34566.3,16.342,2.329,79.1953,5.8348,2.2923,17.48,3.057
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Syrian Arab Republic,25620.4,23.475,4.842,72.9899,14.34,2.6595,35.1,4.839
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,T rkiye,87685.4,12.012,6.57,77.8239,8.8026,1.6195,2.5,10.571
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,United Arab Emirates,11346.0,10.052,0.964,83.235,4.8383,1.2068,23.07,1.792
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Yemen,41773.9,33.546,4.679,69.5796,30.6706,4.4129,28.48,2.545
+2035,Western_Asia,all-countries-data-ined-institut-national-d-etudes-demographiques(11).xls,Western Asia,314297.0,18.972,4.811,75.9086,16.2594,2.5202,15.11,6.254
+2036,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(12).xls,Eastern Europe,284452.0,8.13,12.747,75.1099,4.0072,1.4008,-1.47,18.882
+2036,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(12).xls,Northern Europe,109500.0,9.492,9.682,81.7124,3.0642,1.4984,4.39,20.012
+2036,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(12).xls,Southern Europe,150776.0,7.115,10.932,82.891,2.6598,1.2939,-2.93,23.297
+2036,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(12).xls,Western Europe,199671.0,8.929,10.658,82.5119,2.8957,1.5034,-1.99,22.603
+2036,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(12).xls,EUROPE,744399.0,8.339,11.368,79.4674,3.2976,1.4079,-1.04,20.94
+2037,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(13).xls,Belarus,8997.6,6.928,13.236,74.7927,2.3479,1.2247,-6.64,18.285
+2037,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(13).xls,Bulgaria,6714.56,8.992,15.283,75.9612,4.7234,1.7431,-6.73,22.236
+2037,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(13).xls,Czechia,10609.2,8.193,10.989,80.1069,2.0526,1.4652,-13.37,21.18
+2037,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(13).xls,Hungary,9632.29,8.752,13.34,77.3326,2.8038,1.4951,-6.28,21.157
+2037,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(13).xls,Poland,38140.9,7.797,10.961,78.9807,3.1878,1.3082,-11.84,20.754
+2037,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(13).xls,Republic of Moldova,2996.1,10.35,14.031,71.4672,9.5863,1.724,-13.62,16.858
+2037,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(13).xls,Romania,18908.7,9.439,13.581,76.2453,4.9668,1.7087,-5.68,20.138
+2037,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(13).xls,Russian Federation,143997.0,8.624,12.957,73.5216,4.0535,1.4647,-6.08,17.792
+2037,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(13).xls,Slovakia,5474.88,9.065,10.296,78.654,3.8058,1.5683,-6.96,19.036
+2037,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(13).xls,Ukraine,38980.4,5.649,13.345,74.8652,4.8361,0.9967,35.98,18.972
+2037,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(13).xls,Eastern Europe,284452.0,8.13,12.747,75.1099,4.0072,1.4008,-1.47,18.882
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,Denmark,6002.52,9.867,9.688,82.2452,2.7321,1.5206,3.86,21.119
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,Estonia,1344.24,7.89,12.297,79.4762,1.5985,1.3748,-14.33,21.802
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,Finland,5623.33,7.811,10.79,82.2437,1.6463,1.2974,0.27,24.202
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,Guernsey,64.499,8.146,9.513,83.5139,5.6471,1.3699,2.65,22.174
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,Iceland,398.27,10.965,6.649,83.1526,1.1959,1.5015,11.12,15.977
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,Ireland,5308.04,9.912,7.003,82.7453,2.5518,1.5983,9.58,16.208
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,Jersey,104.002,8.161,10.965,79.9865,8.3643,1.3807,1.22,19.316
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,Latvia,1853.56,7.394,14.76,76.4768,2.6748,1.347,-11.32,22.195
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,Lithuania,2830.15,7.808,14.135,76.3216,3.0031,1.218,-15.03,20.722
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,Norway,5623.07,9.422,7.775,83.6072,1.7239,1.415,6.95,19.08
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,Sweden,10656.6,9.102,9.07,83.5764,1.7888,1.4399,4.45,20.913
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,United Kingdom,69551.3,9.778,9.691,81.5995,3.5365,1.5389,5.69,19.703
+2038,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(14).xls,Northern Europe,109500.0,9.492,9.682,81.7124,3.0642,1.4984,4.39,20.012
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Albania,2771.51,9.898,8.634,79.9533,6.9043,1.3298,-7.48,17.622
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Bosnia and Herzegovina,3140.1,7.725,13.609,78.2371,4.671,1.4983,-8.11,22.86
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Croatia,3848.16,8.054,13.989,78.9154,3.328,1.4736,-6.84,23.61
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Greece,9938.85,6.857,12.609,82.2247,2.7577,1.3393,-4.08,24.4
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Italy,59146.3,6.467,11.271,84.0285,2.1386,1.214,-3.53,25.098
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Kosovo,1674.13,11.683,6.116,78.4216,8.5946,1.5253,-5.42,10.51
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Malta,545.408,7.758,7.742,83.6277,4.5072,1.1137,9.48,20.541
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Montenegro,632.734,11.014,11.507,77.4339,1.8313,1.7952,-15.15,18.294
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,North Macedonia,1813.79,8.994,11.079,77.6759,5.91,1.4691,-5.2,18.524
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Portugal,10411.8,8.227,11.366,82.7165,2.2358,1.5187,-1.56,24.943
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Serbia,6689.04,8.692,14.228,77.1387,3.8219,1.5029,-7.49,23.05
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Slovenia,2117.07,8.129,10.449,81.9359,1.3509,1.578,-1.04,22.211
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Spain,47890.0,6.892,9.548,83.9598,2.1263,1.2299,-0.64,21.642
+2039,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(15).xls,Southern Europe,150776.0,7.115,10.932,82.891,2.6598,1.2939,-2.93,23.297
+2040,Europe,all-countries-data-ined-institut-national-d-etudes-demographiques(16).xls,Austria,9113.58,8.271,10.23,82.2911,2.5453,1.3288,-0.72,21.095
+2040,Europe,all-countries-data-ined-institut-national-d-etudes-demographiques(16).xls,Belgium,11758.6,8.606,9.837,82.4323,2.7845,1.3904,1.49,20.961
+2040,Europe,all-countries-data-ined-institut-national-d-etudes-demographiques(16).xls,France,66650.8,9.52,9.399,83.5804,3.0939,1.6369,1.5,22.542
+2040,Europe,all-countries-data-ined-institut-national-d-etudes-demographiques(16).xls,Germany,84075.1,8.421,12.389,81.707,2.7211,1.4553,-7.94,23.703
+2040,Europe,all-countries-data-ined-institut-national-d-etudes-demographiques(16).xls,Luxembourg,680.455,10.211,7.361,82.4941,2.7828,1.4043,10.54,15.812
+2040,Europe,all-countries-data-ined-institut-national-d-etudes-demographiques(16).xls,Netherlands,18346.8,9.495,9.218,82.4485,3.0017,1.4404,5.98,20.869
+2040,Europe,all-countries-data-ined-institut-national-d-etudes-demographiques(16).xls,Switzerland,8967.41,9.124,8.48,84.2293,3.1,1.4426,4.8,20.432
+2040,Europe,all-countries-data-ined-institut-national-d-etudes-demographiques(16).xls,Western Europe,199671.0,8.929,10.658,82.5119,2.8957,1.5034,-1.99,22.603
+2041,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(17).xls,Caribbean,44622.5,14.438,8.487,73.4131,27.2316,1.9541,3.77,11.41
+2041,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(17).xls,Central America,185161.0,16.082,5.969,75.3206,10.9689,1.9463,9.33,7.95
+2041,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(17).xls,South America,438105.0,12.793,6.869,76.5632,11.7435,1.6873,5.55,10.991
+2041,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(17).xls,LATIN AMERICA AND THE CARIBBEAN,667889.0,13.815,6.728,76.0422,12.575,1.7836,6.48,10.176
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Antigua and Barbuda,94.224,11.577,7.128,77.9414,7.1554,1.5765,4.55,12.335
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Aruba,108.158,9.458,9.997,76.6415,10.7303,1.605,0.47,17.759
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Bahamas,403.041,10.67,8.88,74.863,10.3894,1.3638,4.13,12.094
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Barbados,282.628,11.044,10.294,76.4917,10.7412,1.7047,0.46,17.086
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Cuba,10937.2,8.549,10.496,78.4474,4.4185,1.4511,-3.98,17.035
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Curacao,185.495,7.538,10.226,77.172,8.0371,1.0695,-0.17,17.3
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Dominican Republic,11520.5,17.275,6.336,73.9898,24.7803,2.1946,7.87,8.188
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,France - Guadeloupe,373.797,10.611,9.903,82.403,6.3985,2.0539,-3.56,24.716
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,France - Martinique,340.452,9.974,10.686,82.8924,6.0866,1.9699,-8.07,26.311
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Grenada,117.316,11.245,8.965,75.5184,11.4283,1.4582,0.74,12.624
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Haiti,11906.1,21.622,7.813,65.2979,43.382,2.5861,11.12,4.792
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Jamaica,2837.08,11.222,8.348,71.7296,15.0551,1.3381,-1.02,8.579
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Puerto Rico,3235.29,5.9,10.739,82.0843,4.7508,0.9369,-3.14,25.273
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Saint Lucia,180.157,11.018,8.815,72.9989,13.4102,1.3754,2.05,9.963
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Saint Vincent and the Grenadines,99.934,11.8,11.572,71.5134,12.1474,1.7461,-6.84,12.249
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Trinidad and Tobago,1511.16,10.281,8.953,73.7474,13.4313,1.5233,1.78,12.925
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,United States Virgin Islands,84.155,10.979,15.454,75.9255,4.6693,2.0657,-8.76,23.119
+2042,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(18).xls,Caribbean,44622.5,14.438,8.487,73.4131,27.2316,1.9541,3.77,11.41
+2043,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(19).xls,Belize,422.93,17.777,5.018,73.9035,8.4718,2.0087,13.61,5.228
+2043,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(19).xls,Costa Rica,5152.95,9.825,5.67,81.1907,6.2283,1.3099,4.35,12.752
+2043,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(19).xls,El Salvador,6365.51,15.376,7.499,72.5196,8.9543,1.7531,4.12,8.309
+2043,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(19).xls,Guatemala,18687.9,20.34,4.893,72.8947,16.7657,2.2562,15.02,4.963
+2043,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(19).xls,Honduras,11005.9,21.315,4.557,73.2184,12.203,2.4517,16.33,4.542
+2043,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(19).xls,Mexico,131947.0,15.185,6.283,75.4456,10.0173,1.8689,8.08,8.521
+2043,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(19).xls,Nicaragua,7007.51,18.809,4.687,75.2674,10.5096,2.1812,12.93,5.698
+2043,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(19).xls,Panama,4571.19,15.666,4.968,79.9571,10.04,2.0892,12.04,9.657
+2043,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(19).xls,Central America,185161.0,16.082,5.969,75.3206,10.9689,1.9463,9.33,7.95
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Burundi,14390.0,32.573,6.624,63.9726,34.3844,4.6754,23.54,2.548
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Comoros,882.852,27.779,7.031,67.2487,34.4947,3.7628,18.35,4.454
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Djibouti,1184.08,20.675,7.507,66.4098,34.7202,2.5793,12.68,4.972
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Eritrea,3607.0,28.632,5.941,69.1512,24.9698,3.6126,20.84,4.258
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Ethiopia,135472.0,30.831,5.8,67.8758,30.9197,3.8059,25.21,3.296
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,France - La Reunion,882.411,13.024,5.782,83.8039,4.1037,2.1316,4.31,16.164
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Kenya,57532.5,26.782,7.149,64.0138,28.5817,3.1208,19.16,3.021
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Madagascar,32740.7,31.255,7.415,64.0374,43.3901,3.8449,23.77,3.473
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Malawi,22216.1,30.848,5.237,67.7438,28.1508,3.5269,25.36,2.589
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Mauritius,1268.29,8.994,9.238,75.2708,11.3619,1.2137,-2.43,14.114
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Mayotte,337.019,33.701,2.659,76.4241,8.2071,4.4971,31.17,2.799
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Mozambique,35631.7,36.608,6.826,63.9686,47.8321,4.6198,27.94,2.734
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Rwanda,14569.3,27.737,5.853,68.2415,25.5441,3.5895,22.32,4.024
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Seychelles,132.796,13.343,8.103,73.1404,9.8937,2.0834,17.3,8.744
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Somalia,19654.7,41.833,9.655,59.1083,64.9899,5.9121,32.8,2.617
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,South Sudan,12188.8,29.348,9.861,57.8513,62.6754,3.7078,19.99,3.075
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Uganda,51384.9,33.756,4.708,68.7077,26.9274,4.0629,26.73,2.228
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,United Republic of Tanzania,70545.9,34.294,5.656,67.4188,27.5258,4.4662,28.46,3.042
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Zambia,21913.9,32.351,5.132,66.7003,36.5619,3.9698,27.52,2.0
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Zimbabwe,16950.8,29.54,7.392,63.3459,31.3568,3.6216,18.93,3.561
+2026,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(2).xls,Eastern Africa,513486.0,31.812,6.279,66.014,34.3366,3.9594,24.99,3.05
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,Argentina,45851.4,11.081,7.791,77.6894,8.697,1.5047,3.35,12.634
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,Bolivia,12581.8,20.783,7.172,68.9049,30.3048,2.4973,13.36,5.74
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,Brazil,212812.0,11.882,7.199,76.1999,11.5663,1.6001,3.66,11.48
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,Chile,19859.9,8.579,6.67,81.5386,5.3548,1.1267,4.51,14.59
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,Colombia,53425.6,12.967,5.554,78.0938,9.2843,1.6181,9.83,10.2
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,Ecuador,18289.9,14.635,5.263,77.7572,9.5859,1.7916,8.43,8.596
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,French Guiana,313.665,24.21,4.854,77.3658,8.6052,3.2931,16.46,7.259
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,Guyana,835.994,19.499,7.552,70.4468,17.9004,2.3697,5.85,6.981
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,Paraguay,7013.08,19.362,5.745,74.1107,15.543,2.3946,11.85,6.719
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,Peru,34576.7,15.493,5.666,78.1172,9.8064,1.943,10.17,9.467
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,Suriname,639.86,16.967,6.91,73.8986,10.5228,2.2108,8.54,8.191
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,Uruguay,3384.69,9.748,9.949,78.4541,5.7663,1.3879,-0.6,16.282
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,Venezuela,28516.9,15.294,7.792,72.8418,14.4457,2.0599,3.98,10.018
+2044,Latin_America,all-countries-data-ined-institut-national-d-etudes-demographiques(20).xls,South America,438105.0,12.793,6.869,76.5632,11.7435,1.6873,5.55,10.991
+2045,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(21).xls,Canada,40126.7,8.999,8.139,82.8834,3.8986,1.3324,8.99,20.26
+2045,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(21).xls,United States of America,347276.0,10.55,8.898,79.6135,4.8016,1.6234,5.2,18.387
+2045,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(21).xls,NORTHERN AMERICA,387528.0,10.389,8.82,79.9474,4.7209,1.5945,5.59,18.581
+2046,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(22).xls,Australia/New Zealand,32225.9,11.259,6.906,83.9079,2.7285,1.6407,9.15,18.014
+2046,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(22).xls,Melanesia,13165.1,23.453,6.653,67.1689,28.2989,2.9877,16.68,4.013
+2046,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(22).xls,Micronesia,528.687,19.802,7.252,71.811,23.1276,2.7926,3.3,8.332
+2046,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(22).xls,Polynesia,689.927,17.285,5.585,77.5979,9.4807,2.5025,0.12,9.121
+2046,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(22).xls,OCEANIA,46609.6,14.889,6.819,79.4545,14.5185,2.1254,11.08,13.818
+2047,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(23).xls,Australia,26974.0,11.282,6.796,84.2135,2.569,1.6388,9.57,18.093
+2047,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(23).xls,New Zealand,5251.9,11.137,7.472,82.3882,3.5578,1.6464,6.98,17.609
+2047,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(23).xls,Australia/New Zealand,32225.9,11.259,6.906,83.9079,2.7285,1.6407,9.15,18.014
+2048,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(24).xls,Fiji,933.161,17.624,9.534,67.619,15.7736,2.2483,4.57,6.635
+2048,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(24).xls,France - New Caledonia,295.337,13.776,6.313,79.068,8.1659,1.945,8.96,11.778
+2048,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(24).xls,Papua New Guinea,10762.8,23.876,6.591,66.3853,31.2037,3.0271,17.26,3.588
+2048,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(24).xls,Solomon Islands,838.656,26.423,5.04,70.8342,13.6016,3.4654,23.34,3.669
+2048,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(24).xls,Vanuatu,335.18,27.208,4.964,71.8434,13.6729,3.5322,22.07,4.379
+2048,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(24).xls,Melanesia,13165.1,23.453,6.653,67.1689,28.2989,2.9877,16.68,4.013
+2049,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(25).xls,Guam,169.014,17.03,7.015,77.6264,9.6679,2.7121,7.09,13.094
+2049,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(25).xls,Kiribati,136.506,24.799,7.071,66.7238,41.9358,3.0917,14.35,4.375
+2049,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(25).xls,Micronesia (Fed. States of),113.698,22.137,7.789,67.5027,18.2062,2.7057,4.49,6.182
+2049,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(25).xls,Micronesia,528.687,19.802,7.252,71.811,23.1276,2.7926,3.3,8.332
+2050,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(26).xls,French Polynesia,282.47,10.479,3.977,84.3117,5.0263,1.4784,2.25,11.949
+2050,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(26).xls,Samoa,219.316,24.625,6.181,71.9484,12.4728,3.7527,5.56,6.069
+2050,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(26).xls,Tonga,103.761,22.795,6.472,73.2256,8.3584,3.0657,-4.43,6.849
+2050,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(26).xls,Polynesia,689.927,17.285,5.585,77.5979,9.4807,2.5025,0.12,9.121
+2027,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(3).xls,Angola,39040.0,36.624,6.759,64.9848,46.765,4.9533,29.78,2.895
+2027,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(3).xls,Cameroon,29879.3,32.821,6.911,64.2493,44.8325,4.1853,25.4,2.818
+2027,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(3).xls,Central African Republic,5513.29,45.361,9.268,57.9031,65.9397,5.8092,33.43,2.198
+2027,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(3).xls,Chad,21003.7,43.198,11.066,55.4286,62.3986,5.9377,26.27,2.119
+2027,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(3).xls,Congo,6484.44,30.155,6.207,66.2041,27.3483,4.0478,23.49,3.061
+2027,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(3).xls,Democratic Republic of the Congo,112832.0,40.411,8.333,62.228,48.0167,5.9024,31.84,3.084
+2027,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(3).xls,Equatorial Guinea,1938.44,29.586,7.804,64.1003,50.7704,4.037,23.75,3.764
+2027,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(3).xls,Gabon,2593.13,26.646,6.182,68.6963,25.9355,3.5373,20.89,4.13
+2027,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(3).xls,Sao Tome and Principe,240.264,27.837,5.489,70.0814,10.6594,3.5258,19.7,3.944
+2027,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(3).xls,Middle Africa,219525.0,38.521,8.049,62.3576,48.8338,5.3672,29.64,2.918
+2028,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(4).xls,Algeria,47435.3,18.034,4.645,76.6866,16.4238,2.6702,12.81,6.806
+2028,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(4).xls,Egypt,118366.0,20.699,5.55,71.9868,12.566,2.7083,14.66,5.271
+2028,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(4).xls,Libyan Arab Jamahiriya,7458.55,16.112,5.619,73.1912,9.836,2.2538,10.47,5.192
+2028,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(4).xls,Morocco,38430.8,16.108,5.813,75.6825,13.2824,2.1838,8.83,8.45
+2028,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(4).xls,Sudan,51662.2,32.063,6.238,66.7045,36.6485,4.1931,31.47,3.387
+2028,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(4).xls,Tunisia,12348.6,12.998,6.215,76.9033,9.1287,1.8043,5.61,9.938
+2028,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(4).xls,Western Sahara,600.913,15.031,6.514,71.7797,21.9625,2.1504,16.89,6.766
+2028,Africa_Countries,all-countries-data-ined-institut-national-d-etudes-demographiques(4).xls,Northern Africa,276302.0,21.247,5.594,72.4532,19.8602,2.8781,16.16,5.834
+2029,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(5).xls,Botswana,2562.12,23.881,5.747,69.4289,27.1592,2.6644,15.92,4.083
+2029,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(5).xls,Eswatini,1256.18,23.251,7.757,64.4026,36.5327,2.6798,10.89,4.346
+2029,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(5).xls,Lesotho,2363.33,23.456,10.314,58.2169,52.9221,2.6372,10.94,3.88
+2029,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(5).xls,Namibia,3092.82,25.442,6.183,67.6626,26.317,3.1681,19.86,3.793
+2029,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(5).xls,South Africa,64747.3,18.159,9.274,66.4874,22.3739,2.1863,11.15,6.885
+2029,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(5).xls,Southern Africa,74021.8,18.917,9.03,66.2942,24.3083,2.2675,11.66,6.52
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Benin,14814.5,33.046,8.633,61.1407,50.8993,4.4164,23.89,3.153
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Burkina Faso,24074.6,30.808,7.838,61.4729,53.407,4.0045,21.84,2.684
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Cape Verde,527.333,12.069,5.149,76.3971,9.1739,1.4957,4.5,7.154
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,C te d'Ivoire,32711.5,31.107,7.555,62.2782,50.0798,4.1656,23.9,2.653
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Gambia,2822.09,29.253,6.211,66.2532,28.3417,3.8039,21.99,3.185
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Ghana,35064.3,25.607,6.987,65.8857,29.5064,3.2995,18.13,3.788
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Guinea,15099.7,32.752,8.932,61.0639,63.8483,4.0414,22.74,3.473
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Guinea-Bissau,2249.52,29.103,6.977,64.4108,47.3617,3.6818,21.52,3.237
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Liberia,5731.21,30.267,7.97,62.4713,54.2608,3.7894,20.58,3.335
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Mali,25198.8,39.17,8.376,60.8937,58.8997,5.4213,28.89,2.363
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Mauritania,5315.07,33.659,5.317,68.937,28.5263,4.5603,27.39,3.247
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Niger,27917.8,40.769,8.581,61.6597,62.1132,5.7862,31.91,2.618
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Nigeria,237528.0,32.167,11.558,54.784,67.7329,4.2965,20.55,3.07
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Senegal,18932.0,28.931,5.437,69.1569,22.2616,3.7126,22.83,3.646
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Sierra Leone,8819.8,29.512,8.126,62.1503,69.2935,3.6089,20.1,3.284
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Togo,9721.61,30.453,7.61,63.1374,39.8297,4.0671,21.3,3.264
+2030,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(6).xls,Western Africa,466533.0,32.19,9.642,58.6221,58.7221,4.271,22.15,3.068
+2031,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(7).xls,Eastern Asia,1652190.0,6.215,8.59,79.2703,5.8047,1.0344,-2.42,16.26
+2031,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(7).xls,South-central Asia,2168810.0,17.897,6.379,72.2338,25.5726,2.214,10.36,6.922
+2031,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(7).xls,South-eastern Asia,700032.0,14.454,7.432,72.4667,17.2122,1.9066,6.86,8.404
+2031,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(7).xls,Western Asia,314297.0,18.972,4.811,75.9086,16.2594,2.5202,15.11,6.254
+2031,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(7).xls,ASIA,4835320.0,13.477,7.185,75.0187,20.3047,1.8726,5.8,10.284
+2032,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(8).xls,China,1416100.0,6.15,8.274,78.3723,6.0361,1.0209,-2.31,14.911
+2032,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(8).xls,"China, Hong Kong SAR",7396.08,5.268,7.864,85.7686,1.4187,0.735,-0.18,23.667
+2032,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(8).xls,"China, Macao SAR",722.018,6.275,4.851,83.4152,2.497,0.6864,0.97,15.094
+2032,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(8).xls,Dem. People's Republic of Korea,26571.0,12.603,9.962,73.8594,13.0457,1.7679,2.54,12.71
+2032,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(8).xls,Japan,123103.0,6.078,12.604,85.0012,1.6184,1.225,-5.38,29.994
+2032,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(8).xls,Mongolia,3517.1,17.466,5.953,72.2377,8.6321,2.5845,11.54,5.431
+2032,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(8).xls,Republic of Korea,51667.0,4.759,7.194,84.5348,1.9312,0.7494,-1.16,20.33
+2032,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(8).xls,Ta wan,23112.8,5.422,8.916,80.9415,3.0162,0.8604,-4.4,20.058
+2032,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(8).xls,Eastern Asia,1652190.0,6.215,8.59,79.2703,5.8047,1.0344,-2.42,16.26
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Afghanistan,43844.1,34.391,5.608,66.538,41.3796,4.6592,27.09,2.426
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Bangladesh,175687.0,19.587,5.122,75.195,16.0873,2.1143,12.18,6.668
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Bhutan,796.689,12.346,6.036,73.5278,17.4374,1.4364,6.87,6.627
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,India,1463870.0,15.762,6.638,72.4848,21.7015,1.9435,8.79,7.377
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Iran (Islamic Republic of),92417.7,12.175,4.848,78.0506,8.798,1.6699,8.59,8.581
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Kazakhstan,20843.8,18.952,6.743,74.6708,6.5092,2.9504,11.79,9.003
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Kyrgyzstan,7295.04,20.491,6.042,71.9687,11.7089,2.7515,14.7,5.966
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Maldives,529.68,10.2,2.41,81.5081,4.2879,1.5466,3.48,4.958
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Nepal,29618.1,18.625,6.99,70.8968,19.6002,1.9381,-0.68,6.624
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Pakistan,255220.0,27.073,6.428,67.9371,47.3771,3.4952,15.8,4.362
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Sri Lanka,23229.5,13.711,7.155,77.8539,4.8254,1.9392,5.23,12.475
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Tajikistan,10786.7,24.522,4.612,72.0521,20.3965,2.9943,17.91,4.068
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Turkmenistan,7618.85,20.034,5.88,70.3341,27.7687,2.6283,15.9,4.808
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,Uzbekistan,37053.4,24.592,6.042,72.6562,11.8767,3.4492,18.36,6.069
+2033,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques(9).xls,South-central Asia,2168810.0,17.897,6.379,72.2338,25.5726,2.214,10.36,6.922
+2024,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques.xls,AFRICA,1549870.0,30.377,7.551,64.2085,42.6044,3.9525,22.58,3.699
+2024,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques.xls,ASIA,4835320.0,13.477,7.185,75.0187,20.3047,1.8726,5.8,10.284
+2024,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques.xls,EUROPE,744399.0,8.339,11.368,79.4674,3.2976,1.4079,-1.04,20.94
+2024,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques.xls,LATIN AMERICA AND THE CARIBBEAN,667889.0,13.815,6.728,76.0422,12.575,1.7836,6.48,10.176
+2024,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques.xls,NORTHERN AMERICA,387528.0,10.389,8.82,79.9474,4.7209,1.5945,5.59,18.581
+2024,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques.xls,OCEANIA,46609.6,14.889,6.819,79.4545,14.5185,2.1254,11.08,13.818
+2024,Unknown,all-countries-data-ined-institut-national-d-etudes-demographiques.xls,WORLD,8231610.0,16.084,7.67,73.5179,26.3787,2.2385,8.41,10.41

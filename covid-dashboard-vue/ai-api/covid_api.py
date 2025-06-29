@@ -113,6 +113,27 @@ STATIC_FEATURES = [
     'day_of_year', 'quarter', 'week_of_year', 'weekday', 'is_weekend'
 ]
 
+def validate_data_quality_for_horizons(covid_df, requested_horizons):
+    """🛡️ Valide quels horizons sont sûrs selon la qualité des données"""
+    data_points = len(covid_df)
+    
+    safe_horizons = []
+    warnings = []
+    
+    for horizon in requested_horizons:
+        if horizon <= 1:
+            safe_horizons.append(horizon)
+        elif horizon <= 7 and data_points >= 100:
+            safe_horizons.append(horizon)
+        elif horizon <= 14 and data_points >= 200:
+            safe_horizons.append(horizon)
+        elif horizon <= 30 and data_points >= 500:
+            safe_horizons.append(horizon)
+        else:
+            warnings.append(f"Horizon {horizon}j nécessite au moins {500 if horizon > 14 else 200} points (disponible: {data_points})")
+    
+    return safe_horizons, warnings
+
 class CSVRevolutionaryCovidPredictor:
     """🚀 Prédicteur révolutionnaire 100% CSV"""
     
@@ -325,6 +346,12 @@ class CSVRevolutionaryCovidPredictor:
             
             # Charger données COVID depuis CSV
             covid_df = await self.load_country_data_from_csv(country)
+
+            # 🛡️ Validation de la qualité des données
+            safe_horizons, warnings = validate_data_quality_for_horizons(covid_df, prediction_horizons)
+
+            if len(safe_horizons) < len(prediction_horizons):
+                logger.warning(f"⚠️ Horizons limités pour {country}: {warnings}")
             
             # Date de début prédiction
             if start_date:
@@ -364,47 +391,154 @@ class CSVRevolutionaryCovidPredictor:
             # Prédictions pour tous les horizons
             model.eval()
             predictions_results = []
-            
+
             with torch.no_grad():
                 for horizon in prediction_horizons:
                     if horizon in [1, 7, 14, 30]:  # Horizons supportés
                         pred, uncertainty, attention_weights = model(temporal_tensor, static_tensor, target_horizon=horizon)
                         
-                        # Dénormaliser
+                        # Dénormaliser les 3 prédictions (confirmed, deaths, recovered)
                         pred_denorm = target_scaler.inverse_transform(pred.cpu().numpy())[0]
                         uncertainty_denorm = uncertainty.cpu().numpy()[0] if include_uncertainty else None
+                        
+                        # Extraction des 3 prédictions
+                        confirmed_pred = max(0, float(pred_denorm[0]))
+                        deaths_pred = max(0, float(pred_denorm[1]))
+                        recovered_pred = max(0, float(pred_denorm[2]))
+
+                        # 🛡️ SÉCURITÉ : Garantir des valeurs positives
+                        recovered_pred = max(0, recovered_pred)
+                        deaths_pred = max(0, deaths_pred)
+
+                        # 🧠 ANALYSE SIMPLE DES DERNIÈRES DONNÉES RÉELLES
+                        last_data = covid_df.tail(7)  # 7 derniers jours
+                        if len(last_data) > 0:
+                            current_recovery_rate = last_data['recovered'].iloc[-1] / max(last_data['confirmed'].iloc[-1], 1)
+                            
+                            # Taux minimum basé sur les données observées
+                            min_recovery_rate = max(0.08, current_recovery_rate * 0.8)  # Au moins 80% du taux actuel ou 8%
+                            max_recovery_rate = min(0.70, current_recovery_rate * 2.0)  # Maximum 200% du taux actuel ou 70%
+                            
+                            # Appliquer les contraintes
+                            if recovered_pred < confirmed_pred * min_recovery_rate:
+                                recovered_pred = confirmed_pred * min_recovery_rate
+                                logger.info(f"🛡️ Correction minimum: {min_recovery_rate:.1%}")
+                            elif recovered_pred > confirmed_pred * max_recovery_rate:
+                                recovered_pred = confirmed_pred * max_recovery_rate
+                                logger.info(f"🛡️ Correction maximum: {max_recovery_rate:.1%}")
+
+                        # 🚨 SÉCURITÉ FINALE : Vérifier la cohérence
+                        if deaths_pred + recovered_pred > confirmed_pred:
+                            # Réduire proportionnellement pour garder la cohérence
+                            ratio = confirmed_pred * 0.95 / (deaths_pred + recovered_pred)
+                            deaths_pred *= ratio
+                            recovered_pred *= ratio
+                            logger.info("🛡️ Correction cohérence appliquée")
+
+                        # 🚀 NOUVELLE CONTRAINTE : Progression réaliste entre horizons
+                        # Empêcher les sauts brutaux de guérisons
+                        if horizon > 7 and len(predictions_results) > 0:
+                            # Récupérer le taux de la prédiction précédente
+                            previous_result = predictions_results[-1]
+                            previous_recovery_rate = previous_result.recovered / previous_result.confirmed
+                            current_recovery_rate = recovered_pred / confirmed_pred
+                            
+                            # Limiter l'augmentation à 1% par jour maximum
+                            max_daily_increase = 0.01  # 1% par jour
+                            days_difference = horizon - previous_result.horizon_days
+                            max_allowed_rate = previous_recovery_rate + (max_daily_increase * days_difference)
+                            
+                            if current_recovery_rate > max_allowed_rate:
+                                recovered_pred = confirmed_pred * max_allowed_rate
+                                logger.info(f"🚀 Progression limitée: {max_allowed_rate:.1%} (était {current_recovery_rate:.1%})")
+                        
+                        # Contraintes de cohérence renforcées
+                        if horizon >= 21:
+                            # Récupérer les dernières valeurs connues
+                            last_confirmed = covid_df['confirmed'].iloc[-1]
+                            last_recovered = covid_df['recovered'].iloc[-1]
+                            last_deaths = covid_df['deaths'].iloc[-1]
+                            
+                            # Croissance minimale réaliste
+                            min_growth = 1.02 ** (horizon / 7)  # 2% par semaine minimum
+                            confirmed_pred = max(confirmed_pred, last_confirmed * min_growth)
+                            
+                            # Contraintes : deaths et recovered ne peuvent pas dépasser confirmed
+                            deaths_pred = min(deaths_pred, confirmed_pred * 0.12)  # Max 12% mortalité
+                            recovered_pred = min(recovered_pred, confirmed_pred * 0.85)  # Max 85% guérison
+                            
+                            # Minimums réalistes
+                            deaths_pred = max(deaths_pred, confirmed_pred * 0.01)  # Min 1% mortalité
+                            recovered_pred = max(recovered_pred, confirmed_pred * 0.15)  # Min 15% guérison
+                            
+                            # S'assurer que deaths + recovered <= confirmed
+                            total_resolved = deaths_pred + recovered_pred
+                            if total_resolved > confirmed_pred:
+                                # Réduire proportionnellement
+                                ratio = confirmed_pred * 0.95 / total_resolved  # Garde 5% pour actifs
+                                deaths_pred *= ratio
+                                recovered_pred *= ratio
+                        
+                        # 🚨 CONTRAINTE ANTI-EXPLOSION - Croissance réaliste
+                        if len(predictions_results) > 0:
+                            last_result = predictions_results[-1]
+                            days_diff = horizon - last_result.horizon_days
+                            
+                            # Croissance maximale réaliste : 5% par jour
+                            max_daily_growth = 0.05
+                            max_growth_factor = (1 + max_daily_growth) ** days_diff
+                            max_allowed_confirmed = last_result.confirmed * max_growth_factor
+                            
+                            if confirmed_pred > max_allowed_confirmed:
+                                # Limiter la croissance
+                                growth_ratio = max_allowed_confirmed / confirmed_pred
+                                confirmed_pred = max_allowed_confirmed
+                                deaths_pred *= growth_ratio
+                                recovered_pred *= growth_ratio
+                                logger.info(f"🛡️ Croissance limitée à {max_daily_growth*100:.0f}%/jour: {confirmed_pred:.0f}")
+
+                        # CALCUL MATHÉMATIQUE des cas actifs (cohérence garantie)
+                        active_pred = max(0, confirmed_pred - deaths_pred - recovered_pred)
                         
                         # Date de prédiction
                         pred_date = prediction_start + timedelta(days=horizon)
                         
-                        # Créer résultat
+                        # Créer résultat avec cohérence mathématique garantie
                         result = PredictionResult(
                             date=pred_date.strftime("%Y-%m-%d"),
                             horizon_days=horizon,
-                            confirmed=max(0, float(pred_denorm[0])),
-                            deaths=max(0, float(pred_denorm[1])),
-                            recovered=max(0, float(pred_denorm[2])),
-                            active=max(0, float(pred_denorm[3]))
+                            confirmed=confirmed_pred,
+                            deaths=deaths_pred,
+                            recovered=recovered_pred,
+                            active=active_pred  # ← Toujours calculé, jamais prédit
                         )
                         
-                        # Intervalles de confiance
+                        # Intervalles de confiance (pour les 3 prédictions + active calculé)
                         if include_uncertainty and uncertainty_denorm is not None:
+                            # Incertitude sur confirmed, deaths, recovered
+                            confirmed_uncertainty = abs(uncertainty_denorm[0])
+                            deaths_uncertainty = abs(uncertainty_denorm[1])
+                            recovered_uncertainty = abs(uncertainty_denorm[2])
+                            
+                            # Propager l'incertitude sur active (calcul d'erreur)
+                            active_uncertainty = np.sqrt(confirmed_uncertainty**2 + deaths_uncertainty**2 + recovered_uncertainty**2)
+                            
                             result.confidence_intervals = {
                                 'confirmed': {
-                                    'lower': max(0, float(pred_denorm[0] - 1.96 * uncertainty_denorm[0])),
-                                    'upper': float(pred_denorm[0] + 1.96 * uncertainty_denorm[0])
+                                    'lower': max(0, confirmed_pred - 1.96 * confirmed_uncertainty),
+                                    'upper': confirmed_pred + 1.96 * confirmed_uncertainty
                                 },
                                 'deaths': {
-                                    'lower': max(0, float(pred_denorm[1] - 1.96 * uncertainty_denorm[1])),
-                                    'upper': float(pred_denorm[1] + 1.96 * uncertainty_denorm[1])
+                                    'lower': max(0, deaths_pred - 1.96 * deaths_uncertainty),
+                                    'upper': min(confirmed_pred, deaths_pred + 1.96 * deaths_uncertainty)
                                 },
                                 'recovered': {
-                                    'lower': max(0, float(pred_denorm[2] - 1.96 * uncertainty_denorm[2])),
-                                    'upper': float(pred_denorm[2] + 1.96 * uncertainty_denorm[2])
+                                    'lower': max(0, recovered_pred - 1.96 * recovered_uncertainty),
+                                    'upper': min(confirmed_pred, recovered_pred + 1.96 * recovered_uncertainty)
                                 },
                                 'active': {
-                                    'lower': max(0, float(pred_denorm[3] - 1.96 * uncertainty_denorm[3])),
-                                    'upper': float(pred_denorm[3] + 1.96 * uncertainty_denorm[3])
+                                    'lower': max(0, active_pred - 1.96 * active_uncertainty),
+                                    'upper': active_pred + 1.96 * active_uncertainty
                                 }
                             }
                         
@@ -452,7 +586,7 @@ class CSVRevolutionaryCovidPredictor:
                     "data_points_used": len(covid_df),
                     "features_count": len(TEMPORAL_FEATURES) + len(STATIC_FEATURES),
                     "device": str(self.device),
-                    "horizons_supported": [1, 7, 14, 30],
+                    "horizons_supported": "1,7,14,30",
                     "data_source": "CSV Files"
                 }
             }

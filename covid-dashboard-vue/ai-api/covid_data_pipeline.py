@@ -247,6 +247,16 @@ class CSVCovidDataPipeline:
         logger.info(f"🦠 {len(covid_df)} points temporels COVID chargés")
         logger.info(f"🏳️ {covid_df['country_name'].nunique()} pays")
         logger.info(f"📅 Période: {covid_df['date'].min()} → {covid_df['date'].max()}")
+
+        logger.info(f"🔍 CSV BRUT CHARGÉ:")
+        logger.info(f"   Forme: {covid_df.shape}")  
+        logger.info(f"   Colonnes: {list(covid_df.columns)}")
+        logger.info(f"   Premiers pays uniques: {covid_df.iloc[:, 0].unique()[:10] if len(covid_df.columns) > 0 else 'AUCUN'}")
+
+        # Examiner les 5 premières lignes
+        logger.info(f"🔍 ÉCHANTILLON CSV:")
+        for i in range(min(5, len(covid_df))):
+            logger.info(f"   Ligne {i}: {covid_df.iloc[i].to_dict()}")
         
         return covid_df
     
@@ -385,11 +395,15 @@ class CSVCovidDataPipeline:
                 'day_of_year': date.timetuple().tm_yday,
                 'month': date.month,
                 'quarter': (date.month - 1) // 3 + 1,
-                'week_of_year': date.isocalendar()[1],  # Fix: [1] pour récupérer la semaine
+                'week_of_year': date.isocalendar()[1],
                 'month_sin': np.sin(2 * np.pi * date.month / 12),
                 'month_cos': np.cos(2 * np.pi * date.month / 12),
                 'weekday': date.weekday(),
                 'is_weekend': 1 if date.weekday() >= 5 else 0,
+                'days_since_pandemic_start': (date - pd.to_datetime('2020-01-01')).days,
+                'pandemic_phase': min((date - pd.to_datetime('2020-01-01')).days / 365, 2.0),
+                'recovery_improvement_factor': 1 + ((date - pd.to_datetime('2020-01-01')).days / 365) * 0.5,
+                'vaccination_era': 1 if date >= pd.to_datetime('2021-01-01') else 0,
             }
             
             # Features vaccination

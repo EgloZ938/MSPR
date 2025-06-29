@@ -155,7 +155,7 @@ class CovidRevolutionaryTransformer(nn.Module):
         
         self.d_model = d_model
         self.prediction_horizons = prediction_horizons
-        self.n_outputs = 4  # confirmed, deaths, recovered, active
+        self.n_outputs = 3  # confirmed, deaths, recovered, active
         self.n_horizons = len(prediction_horizons)
         
         # 1. Embedding des séquences temporelles
@@ -310,7 +310,7 @@ class CovidRevolutionaryTrainer:
         ]
         
         # Cibles à prédire
-        target_features = ['confirmed', 'deaths', 'recovered', 'active']
+        target_features = ['confirmed', 'deaths', 'recovered']
         
         # Vérifier la présence des features
         available_temporal = [f for f in temporal_features if f in enriched_df.columns]
@@ -354,8 +354,10 @@ class CovidRevolutionaryTrainer:
                 future_targets = {}
                 for horizon in [1, 7, 14, 30]:
                     if i + sequence_length + horizon - 1 < len(target_data):
-                        future_targets[horizon] = target_data[i + sequence_length + horizon - 1]
-                
+                        # Prendre seulement confirmed, deaths, recovered (pas active)
+                        target_values = target_data[i + sequence_length + horizon - 1][:3]
+                        future_targets[horizon] = target_values
+
                 if len(future_targets) == 4:  # S'assurer qu'on a tous les horizons
                     sequences.append(seq)
                     static_arrays.append(static)
@@ -448,17 +450,46 @@ class CovidRevolutionaryTrainer:
         
         # Loss function (combinaison MSE + MAE)
         def combined_loss(pred, target, uncertainty=None):
+            """Loss améliorée avec cohérence mathématique"""
+            batch_size, n_horizons, n_outputs = pred.shape  # n_outputs = 3 maintenant
+            
+            # Loss de base
             mse_loss = nn.MSELoss()(pred, target)
             mae_loss = nn.L1Loss()(pred, target)
             
-            # Loss avec incertitude (si disponible)
-            if uncertainty is not None:
-                # Negative log-likelihood gaussienne
-                nll_loss = 0.5 * torch.log(2 * np.pi * uncertainty) + \
-                          0.5 * ((pred - target) ** 2) / uncertainty
-                return mse_loss + mae_loss + nll_loss.mean()
+            # Pondération par horizon (moins de poids sur horizons lointains)
+            horizon_weights = torch.tensor([1.0, 0.8, 0.6, 0.4], device=pred.device)  # [1j, 7j, 14j, 30j]
+            horizon_weights = horizon_weights.view(1, n_horizons, 1).expand(batch_size, n_horizons, n_outputs)
             
-            return mse_loss + mae_loss
+            # Loss pondérée
+            weighted_mse = torch.mean(horizon_weights * (pred - target) ** 2)
+            weighted_mae = torch.mean(horizon_weights * torch.abs(pred - target))
+            
+            # Contraintes de cohérence (deaths et recovered ne peuvent pas dépasser confirmed)
+            confirmed = pred[:, :, 0]  # cas confirmés
+            deaths = pred[:, :, 1]     # décès
+            recovered = pred[:, :, 2]  # guérisons
+            
+            # Pénalité si deaths > confirmed ou recovered > confirmed
+            deaths_penalty = torch.mean(torch.relu(deaths - confirmed))
+            recovered_penalty = torch.mean(torch.relu(recovered - confirmed))
+            
+            # Pénalité si deaths + recovered > confirmed
+            total_penalty = torch.mean(torch.relu(deaths + recovered - confirmed))
+            
+            # Loss totale
+            coherence_penalty = deaths_penalty + recovered_penalty + total_penalty
+            total_loss = weighted_mse + weighted_mae + 0.2 * coherence_penalty
+            
+            # Loss avec incertitude
+            if uncertainty is not None:
+                # Stabiliser l'incertitude pour les 3 outputs
+                uncertainty = torch.clamp(uncertainty, min=1e-6)
+                nll_loss = 0.5 * torch.log(2 * np.pi * uncertainty) + \
+                        0.5 * ((pred - target) ** 2) / uncertainty
+                total_loss += 0.1 * nll_loss.mean()
+            
+            return total_loss
         
         # Historique d'entraînement
         history = {
@@ -536,7 +567,7 @@ class CovidRevolutionaryTrainer:
                 val_pred_array = np.vstack(val_predictions)
                 val_target_array = np.vstack(val_targets_list)
                 
-                for i, metric_name in enumerate(['confirmed', 'deaths', 'recovered', 'active']):
+                for i, metric_name in enumerate(['confirmed', 'deaths', 'recovered']):
                     mae = mean_absolute_error(val_target_array[:, i], val_pred_array[:, i])
                     mape = mean_absolute_percentage_error(val_target_array[:, i], val_pred_array[:, i])
                     r2 = r2_score(val_target_array[:, i], val_pred_array[:, i])

@@ -2,11 +2,11 @@
   "training_summary": {
     "model_type": "COVID Revolutionary Transformer v2.0 (CSV)",
     "data_source": "Pure CSV Pipeline",
-    "training_date": "2025-06-28T21:02:18.884656",
+    "training_date": "2025-06-29T16:12:42.701540",
     "dataset_size": 49068,
     "countries_count": 187,
     "features_count": 44,
-    "epochs_completed": 16
+    "epochs_completed": 17
   },
   "csv_data_sources": {
     "covid_timeseries": "covid_19_clean_complete_clean.csv / full_grouped_clean.csv",
@@ -27,7 +27,7 @@
     ]
   },
   "training_config": {
-    "epochs": 20,
+    "epochs": 50,
     "batch_size": 16,
     "learning_rate": 0.0001,
     "sequence_length": 30,
@@ -47,17 +47,14 @@
     }
   },
   "final_performance": {
-    "confirmed_mae": "18.573519",
-    "confirmed_mape": "542463330000.0",
-    "confirmed_r2": -0.024996100790304343,
-    "deaths_mae": "58.630085",
-    "deaths_mape": "279923970000000.0",
-    "deaths_r2": -0.01639540995017419,
-    "recovered_mae": "12.708978",
-    "recovered_mape": "54876537000000.0",
-    "recovered_r2": -0.05421792377551782,
-    "active_mae": "25.083235",
-    "active_mape": "9351224000000.0",
-    "active_r2": -0.0205218168372876
+    "confirmed_mae": "18.248009",
+    "confirmed_mape": "590096700000.0",
+    "confirmed_r2": -0.022326000502997267,
+    "deaths_mae": "57.79373",
+    "deaths_mape": "200262980000000.0",
+    "deaths_r2": -0.014889325547974952,
+    "recovered_mae": "12.023766",
+    "recovered_mape": "37528690000000.0",
+    "recovered_r2": -0.0344578664073103
   }
 }

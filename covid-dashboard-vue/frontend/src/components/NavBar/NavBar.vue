@@ -32,12 +32,16 @@ const props = defineProps({
 const emit = defineEmits(['change-view']);
 const isCoolingDown = ref(false);
 
-// Liste des éléments du menu avec leurs propriétés
+// 🚀 MODIFIE cette liste pour ajouter l'onglet prédictif
 const menuItems = [
   { view: 'mondial', label: 'Vue Mondiale', tooltip: 'Statistiques mondiales' },
   { view: 'regions', label: 'Par Région', tooltip: 'Analyse par région' },
   { view: 'pays', label: 'Par Pays', tooltip: 'Données par pays' },
-  { view: 'modele', label: 'Modèle prédictif', tooltip: 'Modèle prédictif des données' },
+
+  { view: 'predictive', label: '🤖 Prédictions IA', tooltip: 'Intelligence Artificielle Révolutionnaire' },
+
+  { view: 'correlation', label: 'Corrélations', tooltip: 'Analyse des corrélations' },
+  { view: 'modele', label: 'Modèle', tooltip: 'Ancien modèle prédictif' },
 ];
 
 function activateCooldown(duration = 800) {

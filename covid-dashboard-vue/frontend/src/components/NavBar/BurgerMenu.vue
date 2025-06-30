@@ -33,12 +33,15 @@ const props = defineProps({
 const emit = defineEmits(['change-view']);
 const isOpen = ref(false);
 
-// Liste des éléments du menu
 const menuItems = [
     { view: 'mondial', label: 'Vue Mondiale' },
     { view: 'regions', label: 'Par Région' },
     { view: 'pays', label: 'Par Pays' },
-    { view: 'modele', label: 'Modèle prédictif'},
+
+    { view: 'predictive', label: '🤖 Prédictions IA' },
+
+    { view: 'correlation', label: 'Corrélations' },
+    { view: 'modele', label: 'Modèle' },
 ];
 
 function toggleMenu() {
